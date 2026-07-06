@@ -1,0 +1,36 @@
+appId: com.local.stealth-reader
+productName: Stealth Reader
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+asar: true
+
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+
+# Phase 2 引入 better-sqlite3 后需要解包原生模块
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+
+win:
+  target:
+    - target: dir
+      arch:
+        - x64
+  icon: build/icon.png
+  executableName: StealthReader
+  signAndEditExecutable: false
+
+# 单文件 portable 需下载 NSIS，网络不稳时可用 dist（dir 目标）
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+npmRebuild: false
