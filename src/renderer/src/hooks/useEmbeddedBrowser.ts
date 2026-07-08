@@ -4,7 +4,7 @@ import { persistBrowserZoomChange, resolveBrowserZoomPercent } from '../componen
 import { addBrowserHistoryEntry } from '../components/browser/browser-history'
 import { normalizeUrl } from '../url'
 
-interface UseWebviewBrowserOptions {
+interface UseEmbeddedBrowserOptions {
   active: boolean
   initialUrl: string
   settings: AppSettings
@@ -12,7 +12,7 @@ interface UseWebviewBrowserOptions {
   onStatusChange: (status: string) => void
 }
 
-export interface WebviewBrowserState {
+export interface EmbeddedBrowserState {
   viewportRef: React.RefObject<HTMLDivElement | null>
   urlInput: string
   setUrlInput: React.Dispatch<React.SetStateAction<string>>
@@ -42,13 +42,13 @@ function boundsAreValid(bounds: BrowserBounds): boolean {
   return bounds.width > 0 && bounds.height > 0
 }
 
-export function useWebviewBrowser({
+export function useEmbeddedBrowser({
   active,
   initialUrl,
   settings,
   onSettingsChange,
   onStatusChange
-}: UseWebviewBrowserOptions): WebviewBrowserState {
+}: UseEmbeddedBrowserOptions): EmbeddedBrowserState {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const mountedRef = useRef(false)
   const syncFrameRef = useRef<number | null>(null)

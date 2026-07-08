@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AppSettings } from '../../../preload/types'
 import BrowserView from '../components/browser/BrowserView'
 import PortalHome from '../components/browser/PortalHome'
-import { useWebviewBrowser } from '../hooks/useWebviewBrowser'
+import { useEmbeddedBrowser } from '../hooks/useEmbeddedBrowser'
 import { normalizeUrl } from '../url'
 
 interface HomeViewProps {
@@ -25,7 +25,7 @@ export default function HomeView({
   const [browsing, setBrowsing] = useState(false)
   const [browsingUrl, setBrowsingUrl] = useState(settings.lastUrl)
 
-  const browser = useWebviewBrowser({
+  const browser = useEmbeddedBrowser({
     active: browsing,
     initialUrl: browsingUrl,
     settings,

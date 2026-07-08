@@ -1,6 +1,5 @@
+import { ipcRenderer } from 'electron'
 import { applyTransparency, refreshTransparency, removeTransparency } from './transparency/engine'
-
-const { ipcRenderer } = require('electron') as typeof import('electron')
 
 let transparencyRequested = false
 

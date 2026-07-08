@@ -77,7 +77,6 @@ const stealth: StealthApi = {
   },
   getBrowserCacheSize: () => ipcRenderer.invoke('browser-cache-size'),
   clearBrowserCache: () => ipcRenderer.invoke('browser-clear-cache'),
-  getWebviewPreloadPath: () => ipcRenderer.invoke('get-webview-preload-path'),
   listShelves: () => ipcRenderer.invoke('books-list-shelves'),
   listBooks: (shelfId?: ShelfId) => ipcRenderer.invoke('books-list', shelfId),
   importBooks: () => ipcRenderer.invoke('books-import'),

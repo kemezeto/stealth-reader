@@ -184,18 +184,7 @@ export default function InterfaceLockPanel({
           </div>
         </div>
 
-        <div className={`interface-lock-row${disabled ? ' interface-lock-row--disabled' : ''}`}>
-          <span>自动翻页时不锁定</span>
-          <label className="toggle toggle--light">
-            <input
-              type="checkbox"
-              checked={settings.lockSkipDuringAutoPaging}
-              disabled={disabled}
-              onChange={(event) => onSettingsChange({ lockSkipDuringAutoPaging: event.target.checked })}
-            />
-            <span className="toggle__track" aria-hidden="true" />
-          </label>
-        </div>
+        {/* lockSkipDuringAutoPaging: hidden until auto-paging is implemented */}
       </div>
 
       {!lockState.hasPassword && settings.lockEnabled ? (

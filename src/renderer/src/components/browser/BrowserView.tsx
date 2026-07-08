@@ -1,5 +1,5 @@
 import type { AppSettings } from '../../../../preload/types'
-import type { WebviewBrowserState } from '../../hooks/useWebviewBrowser'
+import type { EmbeddedBrowserState } from '../../hooks/useEmbeddedBrowser'
 import { addBrowserBookmark, isBookmarked, removeBrowserBookmarkByUrl } from './browser-bookmarks'
 import BrowserToolbar from './BrowserToolbar'
 import { normalizeUrl } from '../../url'
@@ -7,7 +7,7 @@ import { normalizeUrl } from '../../url'
 interface BrowserViewProps {
   settings: AppSettings
   onSettingsChange: (partial: Partial<AppSettings>) => void
-  browser: WebviewBrowserState
+  browser: EmbeddedBrowserState
   onExit: () => void
 }
 

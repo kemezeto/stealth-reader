@@ -378,7 +378,6 @@ CREATE TABLE bookmarks (
 | `set-window-opacity` | invoke | `number` | `void` |
 | `set-content-opacity` | invoke | `number` | `void` |
 | `toggle-visibility` | invoke | — | `boolean`（是否可见） |
-| `get-webview-preload-path` | invoke | — | `string` |
 | `pointer-event` | send | `{ type: 'enter' \| 'leave' }` | — |
 | `window-minimize` | send | — | — |
 | `window-maximize` | send | — | — |

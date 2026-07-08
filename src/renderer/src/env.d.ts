@@ -1,4 +1,14 @@
 /// <reference types="vite/client" />
+/// <reference types="react" />
+/// <reference types="react-dom" />
+
+import type { JSX as ReactJSX } from 'react'
+
+declare global {
+  namespace JSX {
+    type Element = ReactJSX.Element
+  }
+}
 
 interface ElectronWebviewTag extends HTMLElement {
   src: string

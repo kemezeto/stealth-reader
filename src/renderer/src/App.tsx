@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ActiveTab, AppSettings, LockPublicState } from '../../../preload/types'
+import type { ActiveTab, AppSettings, LockPublicState } from '../../preload/types'
 import BootScreen from './components/BootScreen'
 import BottomNav from './components/BottomNav'
 import LockScreenOverlay from './components/LockScreenOverlay'
@@ -12,8 +12,12 @@ import BrowserBottomBar from './components/browser/BrowserBottomBar'
 import { importBooksFlow } from './booksImport'
 import { normalizeUrl } from './url'
 
+const BROWSER_SETTINGS_DEBOUNCE_MS = 1500
+
 export default function App(): JSX.Element {
   const initialSrcRef = useRef<string | null>(null)
+  const debouncedPartialRef = useRef<Partial<AppSettings>>({})
+  const debounceTimerRef = useRef<number | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [status, setStatus] = useState('加载中')
   const [shellHidden, setShellHidden] = useState(false)
@@ -65,10 +69,51 @@ export default function App(): JSX.Element {
     }
   }, [lockState.locked])
 
-  const saveSettings = useCallback((partial: Partial<AppSettings>) => {
-    setSettings((prev) => (prev ? { ...prev, ...partial } : prev))
+  const flushDebouncedSettings = useCallback((): void => {
+    const partial = debouncedPartialRef.current
+    if (Object.keys(partial).length === 0) return
+    debouncedPartialRef.current = {}
     void window.stealth.saveSettings(partial)
   }, [])
+
+  const saveSettings = useCallback(
+    (partial: Partial<AppSettings>) => {
+      setSettings((prev: AppSettings | null) => (prev ? { ...prev, ...partial } : prev))
+
+      const keys = Object.keys(partial) as Array<keyof AppSettings>
+      const isBrowsingPersistence =
+        keys.length > 0 && keys.every((key) => key === 'browserHistory' || key === 'lastUrl')
+
+      if (isBrowsingPersistence) {
+        debouncedPartialRef.current = { ...debouncedPartialRef.current, ...partial }
+        if (debounceTimerRef.current !== null) {
+          window.clearTimeout(debounceTimerRef.current)
+        }
+        debounceTimerRef.current = window.setTimeout(() => {
+          debounceTimerRef.current = null
+          flushDebouncedSettings()
+        }, BROWSER_SETTINGS_DEBOUNCE_MS)
+        return
+      }
+
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      flushDebouncedSettings()
+      void window.stealth.saveSettings(partial)
+    },
+    [flushDebouncedSettings]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current)
+      }
+      flushDebouncedSettings()
+    }
+  }, [flushDebouncedSettings])
 
   const handleImportBooks = useCallback(() => {
     setStatus('导入中')

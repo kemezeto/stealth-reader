@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import type { AppSettings } from '../../../preload/types'
+import type { AppSettings } from '../../../../preload/types'
 
 const EPUB_LINE_HEIGHT_OPTIONS = [1.5, 2, 2.5, 3] as const
 

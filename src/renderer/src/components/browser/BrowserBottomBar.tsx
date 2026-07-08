@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppSettings } from '../../../preload/types'
+import type { AppSettings } from '../../../../preload/types'
 import BrowserBookmarkSheet from './BrowserBookmarkSheet'
 import BrowserBottomToolbar from './BrowserBottomToolbar'
 import BrowserHistorySheet from './BrowserHistorySheet'

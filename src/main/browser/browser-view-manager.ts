@@ -1,7 +1,8 @@
 import { BrowserView, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { assertAllowedBrowserUrl, isAllowedBrowserUrl } from '../../shared/browser-url'
 import { BROWSER_SESSION_PARTITION } from './browser-cache'
-import { applyMobileWebProfile } from './mobile-profile'
+import { applyMobileWebProfile, detachMobileWebProfile } from './mobile-profile'
 
 const HIDE_SCROLLBAR_CSS = `
   html, body {
@@ -112,6 +113,13 @@ export class BrowserViewManager {
     const window = this.getWindow()
     if (!window) return
 
+    let url: string
+    try {
+      url = assertAllowedBrowserUrl(options.url)
+    } catch {
+      return
+    }
+
     this.unmount()
 
     this.transparent = options.transparent
@@ -125,7 +133,7 @@ export class BrowserViewManager {
         preload: join(__dirname, '../preload/browser-transparency.js'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         partition: BROWSER_SESSION_PARTITION,
         backgroundThrottling: false
       }
@@ -134,9 +142,9 @@ export class BrowserViewManager {
     const { webContents } = view
     applyMobileWebProfile(webContents)
 
-    webContents.setWindowOpenHandler(({ url }) => {
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        void webContents.loadURL(url)
+    webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+      if (isAllowedBrowserUrl(targetUrl)) {
+        void webContents.loadURL(targetUrl)
       }
       return { action: 'deny' }
     })
@@ -148,13 +156,17 @@ export class BrowserViewManager {
     view.setBounds(normalizeBounds(options.bounds))
     this.view = view
 
-    void webContents.loadURL(options.url)
+    void webContents.loadURL(url)
   }
 
   unmount(): void {
     const window = this.getWindow()
     const view = this.view
     if (!view) return
+
+    if (!view.webContents.isDestroyed()) {
+      detachMobileWebProfile(view.webContents)
+    }
 
     if (window && !window.isDestroyed()) {
       window.removeBrowserView(view)
@@ -210,7 +222,8 @@ export class BrowserViewManager {
   loadURL(url: string): void {
     const webContents = this.view?.webContents
     if (!webContents || webContents.isDestroyed()) return
-    void webContents.loadURL(url)
+    if (!isAllowedBrowserUrl(url)) return
+    void webContents.loadURL(url.trim())
   }
 
   goBack(): boolean {
@@ -263,7 +276,8 @@ export class BrowserViewManager {
 
       event.preventDefault()
 
-      const delta = input.deltaY > 0 ? -ZOOM_WHEEL_STEP : ZOOM_WHEEL_STEP
+      const wheelInput = input as Electron.Input & { deltaY: number }
+      const delta = wheelInput.deltaY > 0 ? -ZOOM_WHEEL_STEP : ZOOM_WHEEL_STEP
       const next = Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.zoomFactor + delta)) * 100) / 100
       if (next === this.zoomFactor) return
 

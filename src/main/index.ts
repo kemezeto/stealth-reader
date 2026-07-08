@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { createAutoHideTracker } from './pointer/auto-hide-tracker'
@@ -344,7 +344,7 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       backgroundThrottling: false
     }
   })
@@ -373,7 +373,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('resize', () => {
-    if (mainWindow?.isDestroyed()) return
+    if (!mainWindow || mainWindow.isDestroyed()) return
     mainWindow.webContents.send('window-resized')
   })
 
@@ -505,10 +505,6 @@ function setupIpc(): void {
     mainWindow.show()
     mainWindow.focus()
     return true
-  })
-
-  ipcMain.on('open-external', (_event, url: string) => {
-    shell.openExternal(url)
   })
 
   ipcMain.on('window-minimize', () => mainWindow?.minimize())
