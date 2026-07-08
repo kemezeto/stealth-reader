@@ -109,6 +109,19 @@ export interface AutoHideStatePayload {
   hidden: boolean
 }
 
+export interface BrowserBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type BrowserEventPayload =
+  | { type: 'loading'; loading: boolean }
+  | { type: 'navigate'; url: string; canGoBack: boolean; canGoForward: boolean }
+  | { type: 'fail-load'; errorDescription: string }
+  | { type: 'ready' }
+
 export interface StealthApi {
   getSettings: () => Promise<AppSettings>
   saveSettings: (partial: Partial<AppSettings>) => Promise<AppSettings>
@@ -121,6 +134,20 @@ export interface StealthApi {
   close: () => void
   onContentOpacityChanged: (callback: (opacity: number) => void) => () => void
   onAutoHideStateChanged: (callback: (payload: AutoHideStatePayload) => void) => () => void
+  browserMount: (options: {
+    url: string
+    bounds: BrowserBounds
+    transparent: boolean
+    opacity: number
+  }) => Promise<void>
+  browserUnmount: () => Promise<void>
+  browserSetBounds: (bounds: BrowserBounds) => void
+  browserNavigate: (url: string) => Promise<void>
+  browserBack: () => Promise<boolean>
+  browserForward: () => Promise<boolean>
+  browserReload: () => Promise<void>
+  browserSetTransparency: (transparent: boolean, opacity: number) => void
+  onBrowserEvent: (callback: (payload: BrowserEventPayload) => void) => () => void
   onBrowserTabSwitch: (callback: (direction: 'prev' | 'next') => void) => () => void
   canRegisterHotkey: (accelerator: string) => Promise<boolean>
   getLockState: () => Promise<LockPublicState>

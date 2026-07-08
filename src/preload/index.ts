@@ -22,6 +22,21 @@ const stealth: StealthApi = {
     ipcRenderer.on('auto-hide:state', listener)
     return () => ipcRenderer.removeListener('auto-hide:state', listener)
   },
+  browserMount: (options) => ipcRenderer.invoke('browser-mount', options),
+  browserUnmount: () => ipcRenderer.invoke('browser-unmount'),
+  browserSetBounds: (bounds) => ipcRenderer.send('browser-set-bounds', bounds),
+  browserNavigate: (url) => ipcRenderer.invoke('browser-navigate', url),
+  browserBack: () => ipcRenderer.invoke('browser-back'),
+  browserForward: () => ipcRenderer.invoke('browser-forward'),
+  browserReload: () => ipcRenderer.invoke('browser-reload'),
+  browserSetTransparency: (transparent, opacity) =>
+    ipcRenderer.send('browser-set-transparency', { transparent, opacity }),
+  onBrowserEvent: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: import('./types').BrowserEventPayload) =>
+      callback(payload)
+    ipcRenderer.on('browser-event', listener)
+    return () => ipcRenderer.removeListener('browser-event', listener)
+  },
   onBrowserTabSwitch: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, direction: 'prev' | 'next') => callback(direction)
     ipcRenderer.on('browser-tab-switch', listener)

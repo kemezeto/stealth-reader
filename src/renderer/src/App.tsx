@@ -14,7 +14,6 @@ import { normalizeUrl } from './url'
 export default function App(): JSX.Element {
   const initialSrcRef = useRef<string | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
-  const [webviewPreload, setWebviewPreload] = useState('')
   const [status, setStatus] = useState('加载中')
   const [shellHidden, setShellHidden] = useState(false)
   const [immersive, setImmersive] = useState(false)
@@ -31,15 +30,12 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    void Promise.all([window.stealth.getSettings(), window.stealth.getWebviewPreloadPath(), window.stealth.getLockState()]).then(
-      ([loaded, preloadPath, lock]) => {
-        initialSrcRef.current = normalizeUrl(loaded.lastUrl)
-        setSettings(loaded)
-        setWebviewPreload(preloadPath)
-        setLockState(lock)
-        setStatus('就绪')
-      }
-    )
+    void Promise.all([window.stealth.getSettings(), window.stealth.getLockState()]).then(([loaded, lock]) => {
+      initialSrcRef.current = normalizeUrl(loaded.lastUrl)
+      setSettings(loaded)
+      setLockState(lock)
+      setStatus('就绪')
+    })
   }, [])
 
   useEffect(() => {
@@ -90,7 +86,7 @@ export default function App(): JSX.Element {
     }
   }, [immersive])
 
-  if (!settings || !webviewPreload) {
+  if (!settings) {
     return <BootScreen />
   }
 
@@ -137,7 +133,6 @@ export default function App(): JSX.Element {
           {settings.activeTab === 'home' ? (
             <HomeView
               settings={settings}
-              webviewPreload={webviewPreload}
               onSettingsChange={saveSettings}
               onStatusChange={setStatus}
               onImmersiveChange={setImmersive}

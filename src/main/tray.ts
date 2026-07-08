@@ -13,7 +13,11 @@ function buildTrayIcon(): Electron.NativeImage {
   return image.isEmpty() ? image : image.resize({ width: 16, height: 16 })
 }
 
-export function ensureTray(getWindow: () => BrowserWindow | null, onQuit: () => void): void {
+export function ensureTray(
+  getWindow: () => BrowserWindow | null,
+  onQuit: () => void,
+  onShow?: () => void
+): void {
   if (tray) return
 
   const icon = buildTrayIcon()
@@ -27,6 +31,7 @@ export function ensureTray(getWindow: () => BrowserWindow | null, onQuit: () => 
     if (!window) return
     window.show()
     window.focus()
+    onShow?.()
   }
 
   tray.setContextMenu(
