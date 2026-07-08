@@ -16,6 +16,7 @@ import {
 } from './hotkeys'
 
 import { registerBooksIpc } from './books/ipc'
+import { registerNotesIpc } from './notes/ipc'
 import { registerBookProtocol, registerBookScheme } from './books/protocol'
 import {
   clampWindowSize,
@@ -44,7 +45,7 @@ interface AppSettings {
   ghostMode: boolean
   contentProtection: boolean
   transparentMode: boolean
-  activeTab: 'home' | 'bookshelf' | 'settings'
+  activeTab: 'home' | 'bookshelf' | 'notes' | 'settings'
   lastBookId: string | null
   shelfViewMode: 'list' | 'cover'
   readerFontSize: number
@@ -411,6 +412,7 @@ function setupAutoHideTracker(): void {
 
 function setupIpc(): void {
   registerBooksIpc(() => mainWindow)
+  registerNotesIpc()
 
   ipcMain.handle('get-settings', () => settings)
 

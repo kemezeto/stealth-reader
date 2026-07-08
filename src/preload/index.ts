@@ -86,7 +86,11 @@ const stealth: StealthApi = {
   getBookContent: (bookId) => ipcRenderer.invoke('books-get-content', bookId),
   saveBookProgress: (bookId, progress: BookProgress) =>
     ipcRenderer.invoke('books-save-progress', bookId, progress),
-  removeBook: (bookId) => ipcRenderer.invoke('books-remove', bookId)
+  removeBook: (bookId) => ipcRenderer.invoke('books-remove', bookId),
+  listNotes: () => ipcRenderer.invoke('notes-list'),
+  createNote: (content) => ipcRenderer.invoke('notes-create', { content }),
+  updateNote: (noteId, content) => ipcRenderer.invoke('notes-update', noteId, { content }),
+  removeNote: (noteId) => ipcRenderer.invoke('notes-remove', noteId)
 }
 
 contextBridge.exposeInMainWorld('stealth', stealth)

@@ -5,6 +5,7 @@ import type { ActiveTab } from '../../../preload/types'
 const TITLES: Record<ActiveTab, string> = {
   home: '首页',
   bookshelf: '书架',
+  notes: '笔记',
   settings: '我的'
 }
 

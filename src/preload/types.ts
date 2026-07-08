@@ -1,4 +1,4 @@
-export type ActiveTab = 'home' | 'bookshelf' | 'settings'
+export type ActiveTab = 'home' | 'bookshelf' | 'notes' | 'settings'
 
 export type BookFormat = 'txt' | 'epub' | 'pdf'
 export type ShelfId = 'default'
@@ -50,6 +50,13 @@ export interface BookMeta {
   format: BookFormat
   progress: BookProgress
   fileUrl: string
+}
+
+export interface NoteRecord {
+  id: string
+  content: string
+  createdAt: number
+  updatedAt: number
 }
 
 export type WindowSizePreset = 'portrait' | 'landscape' | 'custom'
@@ -208,6 +215,10 @@ export interface StealthApi {
   getBookContent: (bookId: string) => Promise<BookContent>
   saveBookProgress: (bookId: string, progress: BookProgress) => Promise<BookRecord>
   removeBook: (bookId: string) => Promise<void>
+  listNotes: () => Promise<NoteRecord[]>
+  createNote: (content: string) => Promise<NoteRecord>
+  updateNote: (noteId: string, content: string) => Promise<NoteRecord>
+  removeNote: (noteId: string) => Promise<void>
 }
 
 declare global {
