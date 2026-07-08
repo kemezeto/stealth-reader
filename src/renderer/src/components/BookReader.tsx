@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { BookMeta, BookProgress } from '../../../preload/types'
+import type { ReaderTocApi } from '../types/toc'
 import EpubReader from './EpubReader'
 import LocalReader from './LocalReader'
 import PdfReader from './PdfReader'
@@ -14,6 +15,7 @@ interface BookReaderProps {
   readerPrevPage: string
   readerNextPage: string
   onProgressChange: (progress: BookProgress) => void
+  onTocApiChange?: (api: ReaderTocApi | null) => void
 }
 
 export default function BookReader({
@@ -25,7 +27,8 @@ export default function BookReader({
   ghostMode,
   readerPrevPage,
   readerNextPage,
-  onProgressChange
+  onProgressChange,
+  onTocApiChange
 }: BookReaderProps): JSX.Element {
   const [meta, setMeta] = useState<BookMeta | null>(null)
   const [error, setError] = useState('')
@@ -85,6 +88,7 @@ export default function BookReader({
         readerPrevPage={readerPrevPage}
         readerNextPage={readerNextPage}
         onProgressChange={onProgressChange}
+        onTocApiChange={onTocApiChange}
       />
     )
   }
@@ -96,6 +100,7 @@ export default function BookReader({
       readerPrevPage={readerPrevPage}
       readerNextPage={readerNextPage}
       onProgressChange={onProgressChange}
+      onTocApiChange={onTocApiChange}
     />
   )
 }

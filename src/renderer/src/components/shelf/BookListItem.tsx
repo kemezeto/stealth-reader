@@ -1,5 +1,6 @@
 import type { BookRecord } from '../../../../preload/types'
-import { coverGradientForTitle, formatLabel, formatProgress } from '../../lib/cover'
+import { formatProgress } from '../../lib/cover'
+import BookCover from './BookCover'
 
 interface BookListItemProps {
   book: BookRecord
@@ -19,15 +20,7 @@ export default function BookListItem({
   return (
     <li className={`book-list__item${isRecent ? ' book-list__item--recent' : ''}`}>
       <button type="button" className="book-list__open" onClick={() => onOpen(book.id)}>
-        <div
-          className="book-list__cover"
-          style={{ background: coverGradientForTitle(book.title) }}
-          aria-hidden="true"
-        >
-          <span className={`book-list__format book-list__format--${book.format}`}>
-            {formatLabel(book.format)}
-          </span>
-        </div>
+        <BookCover format={book.format} variant="list" />
         <div className="book-list__meta">
           <span className="book-list__title">{book.title}</span>
           {progressText ? <span className="book-list__progress">已读 {progressText}</span> : null}

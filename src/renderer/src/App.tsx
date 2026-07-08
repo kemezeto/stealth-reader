@@ -7,6 +7,7 @@ import { PageNavBar, TopBar } from './components/PageHeader'
 import ShelfSettingsDrawer from './components/shelf/ShelfSettingsDrawer'
 import BookshelfView from './views/BookshelfView'
 import HomeView from './views/HomeView'
+import NotesView from './views/NotesView'
 import SettingsView from './views/SettingsView'
 import BrowserBottomBar from './components/browser/BrowserBottomBar'
 import { importBooksFlow } from './booksImport'
@@ -200,6 +201,8 @@ export default function App(): JSX.Element {
               onImmersiveChange={setImmersive}
             />
           ) : null}
+
+          {settings.activeTab === 'notes' ? <NotesView /> : null}
 
           {settings.activeTab === 'settings' ? (
             <SettingsView

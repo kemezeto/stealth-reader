@@ -1,4 +1,4 @@
-import { BookOpen, Home, UserRound } from 'lucide-react'
+import { BookOpen, Home, NotebookPen, UserRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ActiveTab } from '../../../preload/types'
 
@@ -10,6 +10,7 @@ interface BottomNavProps {
 const ITEMS: Array<{ id: ActiveTab; label: string; icon: LucideIcon }> = [
   { id: 'home', label: '首页', icon: Home },
   { id: 'bookshelf', label: '书架', icon: BookOpen },
+  { id: 'notes', label: '笔记', icon: NotebookPen },
   { id: 'settings', label: '我的', icon: UserRound }
 ]
 
