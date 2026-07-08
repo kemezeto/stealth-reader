@@ -1,4 +1,4 @@
-import type { BookRecord } from '../../../preload/types'
+import type { BookRecord } from '../../../../preload/types'
 import BookListItem from './BookListItem'
 
 interface BookListProps {

@@ -23,7 +23,7 @@ type HotkeyHandlers = {
 const registered = new Map<string, () => void>()
 
 function unregisterAllTracked(): void {
-  for (const accelerator of registered.keys()) {
+  for (const accelerator of Array.from(registered.keys())) {
     try {
       globalShortcut.unregister(accelerator)
     } catch {

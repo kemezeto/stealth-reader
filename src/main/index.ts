@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { createAutoHideTracker } from './pointer/auto-hide-tracker'
@@ -24,12 +24,17 @@ import {
   WINDOW_SIZE_PRESETS,
   type WindowSizePreset
 } from '../shared/window-size'
+import { scheduleWindowRedraw } from './window-redraw'
+import { BrowserViewManager } from './browser/browser-view-manager'
+import { registerBrowserCacheIpc } from './browser/browser-cache'
+import { createBrowserToolbarRevealTracker } from './browser/browser-toolbar-reveal-tracker'
 
 registerBookScheme()
 
-/** 使用桌面 Chrome UA，避免站点拒绝 Electron webview */
-const DESKTOP_CHROME_USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+if (process.platform === 'win32') {
+  // 避免 BrowserView 聚焦/失焦时透明窗口被 Windows 判定为不可见而停止绘制
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+}
 
 interface AppSettings {
   windowOpacity: number
@@ -52,6 +57,13 @@ interface AppSettings {
   browserTabPrev: string
   browserTabNext: string
   browserTabSwitchEnabled: boolean
+  browserToolbarAutoHide: boolean
+  browserShowScrollbar: boolean
+  browserZoomPercent: number
+  browserZoomScope: 'domain' | 'global'
+  browserZoomByDomain: Record<string, number>
+  browserBookmarks: Array<{ id: string; title: string; url: string; createdAt: number }>
+  browserHistory: Array<{ id: string; title: string; url: string; visitedAt: number }>
   windowWidth: number
   windowHeight: number
   windowSizePreset: WindowSizePreset
@@ -91,6 +103,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   browserTabPrev: 'Alt+A',
   browserTabNext: 'Alt+D',
   browserTabSwitchEnabled: false,
+  browserToolbarAutoHide: false,
+  browserShowScrollbar: true,
+  browserZoomPercent: 100,
+  browserZoomScope: 'domain',
+  browserZoomByDomain: {},
+  browserBookmarks: [],
+  browserHistory: [],
   windowWidth: WINDOW_SIZE_PRESETS.portrait.width,
   windowHeight: WINDOW_SIZE_PRESETS.portrait.height,
   windowSizePreset: 'portrait',
@@ -109,6 +128,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 }
 
 let mainWindow: BrowserWindow | null = null
+let browserViewManager: BrowserViewManager | null = null
+let browserToolbarRevealTracker: ReturnType<typeof createBrowserToolbarRevealTracker> | null = null
 let settings = loadSettings()
 let autoHideTracker: ReturnType<typeof createAutoHideTracker> | null = null
 let savedWindowBounds: Electron.Rectangle | null = null
@@ -230,22 +251,13 @@ function applyGlobalHotkeys(): void {
   })
 }
 
-function setupWebview(): void {
-  const transparentBackground = '#00000000'
-
-  app.on('web-contents-created', (_event, contents) => {
-    if (contents.getType() !== 'webview') return
-
-    contents.setUserAgent(DESKTOP_CHROME_USER_AGENT)
-    contents.setBackgroundColor(transparentBackground)
-
-    contents.setWindowOpenHandler(({ url }) => {
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        void contents.loadURL(url)
-      }
-      return { action: 'deny' }
-    })
+function setupBrowserViewManager(): void {
+  browserViewManager = new BrowserViewManager(() => mainWindow)
+  browserViewManager.registerIpc()
+  registerBrowserCacheIpc(() => {
+    browserViewManager?.reload()
   })
+  browserToolbarRevealTracker = createBrowserToolbarRevealTracker(() => mainWindow)
 }
 
 function requestQuit(): void {
@@ -258,7 +270,7 @@ function syncSystemPreferences(): void {
   syncAutoLaunch(settings.autoLaunch)
 
   if (settings.closeAction === 'minimize') {
-    ensureTray(() => mainWindow, requestQuit)
+    ensureTray(() => mainWindow, requestQuit, () => autoHideTracker?.forceReveal())
   } else {
     disposeTray()
   }
@@ -332,8 +344,8 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
-      webviewTag: true
+      sandbox: true,
+      backgroundThrottling: false
     }
   })
 
@@ -347,16 +359,28 @@ function createWindow(): void {
 
   mainWindow.on('show', () => {
     syncCaptureProtection()
+    autoHideTracker?.forceReveal()
+    scheduleWindowRedraw(mainWindow!, settings.windowOpacity)
+  })
+
+  mainWindow.on('focus', () => {
+    autoHideTracker?.forceReveal()
+    scheduleWindowRedraw(mainWindow!, settings.windowOpacity)
+  })
+
+  mainWindow.on('blur', () => {
+    scheduleWindowRedraw(mainWindow!, settings.windowOpacity)
+  })
+
+  mainWindow.on('resize', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    mainWindow.webContents.send('window-resized')
   })
 
   mainWindow.on('close', (event) => {
     if (appIsQuitting || settings.closeAction === 'quit') return
     event.preventDefault()
     mainWindow?.hide()
-  })
-
-  mainWindow.webContents.on('did-attach-webview', (_event, guestContents) => {
-    guestContents.setBackgroundColor('#00000000')
   })
 
   mainWindow.on('closed', () => {
@@ -375,7 +399,11 @@ function createWindow(): void {
 }
 
 function setupAutoHideTracker(): void {
-  autoHideTracker = createAutoHideTracker(() => mainWindow, () => settings.autoHide)
+  autoHideTracker = createAutoHideTracker(
+    () => mainWindow,
+    () => settings.autoHide,
+    (hidden) => browserViewManager?.setAutoHideSuppressed(hidden)
+  )
   syncAutoHideTracker()
 }
 
@@ -462,10 +490,6 @@ function setupIpc(): void {
     mainWindow?.webContents.send('content-opacity-changed', opacity)
   })
 
-  ipcMain.handle('get-webview-preload-path', () =>
-    join(__dirname, '../preload/browser-transparency.js')
-  )
-
   ipcMain.handle('can-register-hotkey', (_event, accelerator: string) =>
     canRegisterGlobalShortcut(accelerator)
   )
@@ -483,16 +507,19 @@ function setupIpc(): void {
     return true
   })
 
-  ipcMain.on('open-external', (_event, url: string) => {
-    shell.openExternal(url)
-  })
-
   ipcMain.on('window-minimize', () => mainWindow?.minimize())
   ipcMain.on('window-maximize', () => {
     if (!mainWindow) return
     toggleWindowMaximize(mainWindow)
   })
   ipcMain.on('window-close', () => handleWindowCloseRequest())
+
+  ipcMain.on(
+    'browser-toolbar-state',
+    (_event, state: { browsing: boolean; autoHide: boolean; hidden: boolean }) => {
+      browserToolbarRevealTracker?.setState(state)
+    }
+  )
 }
 
 app.whenReady().then(() => {
@@ -501,7 +528,7 @@ app.whenReady().then(() => {
   }
 
   registerBookProtocol()
-  setupWebview()
+  setupBrowserViewManager()
   setupIpc()
   createWindow()
   setupAutoHideTracker()
@@ -518,6 +545,8 @@ app.on('will-quit', () => {
   appIsQuitting = true
   disposeGlobalHotkeys()
   disposeTray()
+  browserViewManager?.dispose()
+  browserToolbarRevealTracker?.dispose()
   autoHideTracker?.dispose()
 })
 

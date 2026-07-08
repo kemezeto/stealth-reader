@@ -86,7 +86,7 @@ export function registerBookProtocol(): void {
         }
 
         const chunk = readFileRange(filePath, start, end)
-        return new Response(chunk, {
+        return new Response(new Uint8Array(chunk), {
           status: 206,
           headers: {
             ...baseHeaders,

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Book, Rendition } from 'epubjs'
 import { ReactReader, ReactReaderStyle } from 'react-reader'
-import type { IReactReaderStyle } from 'react-reader/dist/ReactReader/style'
 import type { BookMeta, BookProgress } from '../../../preload/types'
 import { toArrayBuffer } from '../lib/bytes'
 import { useHotkeyHandler } from '../hooks/useHotkeyHandler'
@@ -10,6 +9,30 @@ const GHOST_THEME = 'stealth-ghost'
 const EPUB_GHOST_STYLE_ID = 'stealth-epub-ghost'
 const EPUB_TEXT_COLOR_STYLE_ID = 'stealth-epub-text-color'
 const EPUB_LINE_HEIGHT_STYLE_ID = 'stealth-epub-line-height'
+
+type EpubContents = {
+  document: Document
+  css: (property: string, value: string, priority?: boolean) => void
+}
+
+function getRenditionContents(rendition: Rendition): EpubContents[] {
+  return rendition.getContents() as unknown as EpubContents[]
+}
+
+function overrideThemeStyles(rendition: Rendition, selector: string, properties: Record<string, string>): void {
+  const themes = rendition.themes as unknown as {
+    override: (sel: string, props: Record<string, string>) => void
+  }
+  themes.override(selector, properties)
+}
+
+type RenditionWithManager = Rendition & {
+  manager?: {
+    container?: HTMLElement
+  }
+}
+
+type ReactReaderStyleMap = typeof ReactReaderStyle
 
 const EPUB_SELECTION_CSS = `
   html, body {
@@ -86,7 +109,7 @@ function applyTextColorToDocument(doc: Document, color: string): void {
 }
 
 function applyEpubTextColor(rendition: Rendition, color: string): void {
-  for (const contents of rendition.getContents()) {
+  for (const contents of getRenditionContents(rendition)) {
     applyTextColorToDocument(contents.document, color)
   }
 }
@@ -122,10 +145,10 @@ function applyLineHeightToDocument(doc: Document, lineHeight: number): void {
 }
 
 function applyEpubLineHeight(rendition: Rendition, lineHeight: number): void {
-  rendition.themes.override('body', { 'line-height': String(lineHeight) })
-  rendition.themes.override('p', { 'line-height': String(lineHeight) })
+  overrideThemeStyles(rendition, 'body', { 'line-height': String(lineHeight) })
+  overrideThemeStyles(rendition, 'p', { 'line-height': String(lineHeight) })
 
-  for (const contents of rendition.getContents()) {
+  for (const contents of getRenditionContents(rendition)) {
     applyLineHeightToDocument(contents.document, lineHeight)
   }
 }
@@ -162,7 +185,7 @@ function applyGhostStylesToDocument(doc: Document, enabled: boolean): void {
 }
 
 function applyEpubGhostChrome(rendition: Rendition, enabled: boolean): void {
-  const manager = rendition.manager as { container?: HTMLElement } | undefined
+  const manager = (rendition as RenditionWithManager).manager
   const container = manager?.container
   if (!container) return
 
@@ -187,7 +210,7 @@ function applyEpubGhostStyles(rendition: Rendition, enabled: boolean): void {
     rendition.themes.select('default')
   }
 
-  for (const contents of rendition.getContents()) {
+  for (const contents of getRenditionContents(rendition)) {
     applyGhostStylesToDocument(contents.document, enabled)
     if (enabled) {
       contents.css('background-color', 'transparent', true)
@@ -232,7 +255,7 @@ export default function EpubReader({
   const [loadError, setLoadError] = useState('')
   const [location, setLocation] = useState<string | number | null>(meta.progress.location ?? null)
 
-  const readerStyles = useMemo<IReactReaderStyle>(
+  const readerStyles = useMemo<ReactReaderStyleMap>(
     () => ({
       ...ReactReaderStyle,
       titleArea: {
@@ -331,7 +354,7 @@ export default function EpubReader({
       applyEpubLineHeight(rendition, lineHeightRef.current)
       applyEpubGhostStyles(rendition, ghostModeRef.current)
 
-      const manager = rendition.manager as { container?: HTMLElement } | undefined
+      const manager = (rendition as RenditionWithManager).manager
       manager?.container?.classList.add('epub-scroll-viewport')
 
       rendition.on('rendered', () => {
@@ -341,7 +364,7 @@ export default function EpubReader({
         applyEpubGhostStyles(rendition, true)
       })
 
-      rendition.hooks.content.register((contents) => {
+      rendition.hooks.content.register((contents: EpubContents) => {
         const doc = contents.document
         const style = doc.createElement('style')
         style.textContent = EPUB_SELECTION_CSS

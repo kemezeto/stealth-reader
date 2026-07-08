@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ActiveTab, AppSettings, LockPublicState } from '../../../preload/types'
+import type { ActiveTab, AppSettings, LockPublicState } from '../../preload/types'
 import BootScreen from './components/BootScreen'
 import BottomNav from './components/BottomNav'
 import LockScreenOverlay from './components/LockScreenOverlay'
@@ -8,16 +8,22 @@ import ShelfSettingsDrawer from './components/shelf/ShelfSettingsDrawer'
 import BookshelfView from './views/BookshelfView'
 import HomeView from './views/HomeView'
 import SettingsView from './views/SettingsView'
+import BrowserBottomBar from './components/browser/BrowserBottomBar'
 import { importBooksFlow } from './booksImport'
 import { normalizeUrl } from './url'
 
+const BROWSER_SETTINGS_DEBOUNCE_MS = 1500
+
 export default function App(): JSX.Element {
   const initialSrcRef = useRef<string | null>(null)
+  const debouncedPartialRef = useRef<Partial<AppSettings>>({})
+  const debounceTimerRef = useRef<number | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
-  const [webviewPreload, setWebviewPreload] = useState('')
   const [status, setStatus] = useState('加载中')
   const [shellHidden, setShellHidden] = useState(false)
   const [immersive, setImmersive] = useState(false)
+  const [browserBrowsing, setBrowserBrowsing] = useState(false)
+  const [browserCurrentUrl, setBrowserCurrentUrl] = useState('')
   const [booksRefreshKey, setBooksRefreshKey] = useState(0)
   const [shelfDrawerOpen, setShelfDrawerOpen] = useState(false)
   const [lockState, setLockState] = useState<LockPublicState>({
@@ -31,15 +37,12 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    void Promise.all([window.stealth.getSettings(), window.stealth.getWebviewPreloadPath(), window.stealth.getLockState()]).then(
-      ([loaded, preloadPath, lock]) => {
-        initialSrcRef.current = normalizeUrl(loaded.lastUrl)
-        setSettings(loaded)
-        setWebviewPreload(preloadPath)
-        setLockState(lock)
-        setStatus('就绪')
-      }
-    )
+    void Promise.all([window.stealth.getSettings(), window.stealth.getLockState()]).then(([loaded, lock]) => {
+      initialSrcRef.current = normalizeUrl(loaded.lastUrl)
+      setSettings(loaded)
+      setLockState(lock)
+      setStatus('就绪')
+    })
   }, [])
 
   useEffect(() => {
@@ -66,10 +69,51 @@ export default function App(): JSX.Element {
     }
   }, [lockState.locked])
 
-  const saveSettings = useCallback((partial: Partial<AppSettings>) => {
-    setSettings((prev) => (prev ? { ...prev, ...partial } : prev))
+  const flushDebouncedSettings = useCallback((): void => {
+    const partial = debouncedPartialRef.current
+    if (Object.keys(partial).length === 0) return
+    debouncedPartialRef.current = {}
     void window.stealth.saveSettings(partial)
   }, [])
+
+  const saveSettings = useCallback(
+    (partial: Partial<AppSettings>) => {
+      setSettings((prev: AppSettings | null) => (prev ? { ...prev, ...partial } : prev))
+
+      const keys = Object.keys(partial) as Array<keyof AppSettings>
+      const isBrowsingPersistence =
+        keys.length > 0 && keys.every((key) => key === 'browserHistory' || key === 'lastUrl')
+
+      if (isBrowsingPersistence) {
+        debouncedPartialRef.current = { ...debouncedPartialRef.current, ...partial }
+        if (debounceTimerRef.current !== null) {
+          window.clearTimeout(debounceTimerRef.current)
+        }
+        debounceTimerRef.current = window.setTimeout(() => {
+          debounceTimerRef.current = null
+          flushDebouncedSettings()
+        }, BROWSER_SETTINGS_DEBOUNCE_MS)
+        return
+      }
+
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      flushDebouncedSettings()
+      void window.stealth.saveSettings(partial)
+    },
+    [flushDebouncedSettings]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current)
+      }
+      flushDebouncedSettings()
+    }
+  }, [flushDebouncedSettings])
 
   const handleImportBooks = useCallback(() => {
     setStatus('导入中')
@@ -81,6 +125,8 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     setImmersive(false)
+    setBrowserBrowsing(false)
+    setBrowserCurrentUrl('')
     setShelfDrawerOpen(false)
   }, [settings?.activeTab])
 
@@ -90,7 +136,7 @@ export default function App(): JSX.Element {
     }
   }, [immersive])
 
-  if (!settings || !webviewPreload) {
+  if (!settings) {
     return <BootScreen />
   }
 
@@ -98,8 +144,8 @@ export default function App(): JSX.Element {
     <div className={`shell${shellHidden ? ' shell--hidden' : ''}${settings.ghostMode ? ' shell--ghost' : ''}`}>
       <div
         className={`shell__main${immersive ? ' shell__main--immersive' : ''}${
-          !immersive && settings.activeTab === 'settings' ? ' shell__main--no-nav' : ''
-        }`}
+          browserBrowsing ? ' shell__main--browser' : ''
+        }${!immersive && settings.activeTab === 'settings' ? ' shell__main--no-nav' : ''}`}
       >
         <TopBar
           ghostMode={settings.ghostMode}
@@ -137,10 +183,11 @@ export default function App(): JSX.Element {
           {settings.activeTab === 'home' ? (
             <HomeView
               settings={settings}
-              webviewPreload={webviewPreload}
               onSettingsChange={saveSettings}
               onStatusChange={setStatus}
               onImmersiveChange={setImmersive}
+              onBrowsingChange={setBrowserBrowsing}
+              onBrowsingUrlChange={setBrowserCurrentUrl}
             />
           ) : null}
 
@@ -164,10 +211,6 @@ export default function App(): JSX.Element {
                 saveSettings({ windowOpacity: value })
                 void window.stealth.setWindowOpacity(value)
               }}
-              onContentOpacityChange={(value) => {
-                saveSettings({ contentOpacity: value })
-                void window.stealth.setContentOpacity(value)
-              }}
             />
           ) : null}
         </div>
@@ -178,7 +221,13 @@ export default function App(): JSX.Element {
           onUnlocked={refreshLockState}
         />
 
-        {!immersive ? (
+        {browserBrowsing ? (
+          <BrowserBottomBar
+            settings={settings}
+            currentUrl={browserCurrentUrl}
+            onSettingsChange={saveSettings}
+          />
+        ) : !immersive ? (
           <div className="bottom-nav-bar">
             <BottomNav activeTab={settings.activeTab} onChange={(activeTab) => saveSettings({ activeTab })} />
           </div>

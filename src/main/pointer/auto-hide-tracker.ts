@@ -52,7 +52,8 @@ export class AutoHideTracker {
 
   constructor(
     private getWindow: () => BrowserWindow | null,
-    private isEnabled: () => boolean
+    private isEnabled: () => boolean,
+    private onUiVisibilityChange?: (hidden: boolean) => void
   ) {}
 
   isUserVisible(): boolean {
@@ -88,11 +89,17 @@ export class AutoHideTracker {
     this.outsideStreak = 0
     this.insideStreak = 0
     this.clearIgnoreTimer()
+    this.restoreUi({ notifyRenderer: false })
 
     const window = this.getWindow()
     if (window && !window.isDestroyed()) {
       window.setIgnoreMouseEvents(false)
     }
+  }
+
+  forceReveal(): void {
+    if (this.bossKeyHidden) return
+    this.restoreUi({ notifyRenderer: true })
   }
 
   dispose(): void {
@@ -138,6 +145,7 @@ export class AutoHideTracker {
     this.insideStreak = 0
     this.clearIgnoreTimer()
     this.sendUiState(window, true)
+    this.onUiVisibilityChange?.(true)
 
     this.ignoreTimer = setTimeout(() => {
       this.ignoreTimer = null
@@ -153,6 +161,7 @@ export class AutoHideTracker {
     this.outsideStreak = 0
     this.clearIgnoreTimer()
     window.setIgnoreMouseEvents(false)
+    this.onUiVisibilityChange?.(false)
 
     // 等一帧再显示 UI，避免 Windows 上 mouse events 与重绘抢帧导致闪烁
     setImmediate(() => {
@@ -162,6 +171,7 @@ export class AutoHideTracker {
   }
 
   private restoreUi(options: { notifyRenderer: boolean }): void {
+    const wasHidden = this.uiHidden
     this.clearIgnoreTimer()
     this.uiHidden = false
     this.outsideStreak = 0
@@ -173,6 +183,9 @@ export class AutoHideTracker {
     window.setIgnoreMouseEvents(false)
     if (options.notifyRenderer) {
       this.sendUiState(window, false)
+    }
+    if (wasHidden) {
+      this.onUiVisibilityChange?.(false)
     }
   }
 
@@ -218,9 +231,10 @@ export class AutoHideTracker {
 
 export function createAutoHideTracker(
   getWindow: () => BrowserWindow | null,
-  isEnabled: () => boolean
+  isEnabled: () => boolean,
+  onUiVisibilityChange?: (hidden: boolean) => void
 ): AutoHideTracker {
-  return new AutoHideTracker(getWindow, isEnabled)
+  return new AutoHideTracker(getWindow, isEnabled, onUiVisibilityChange)
 }
 
 export { AUTO_HIDE_STATE_CHANNEL }

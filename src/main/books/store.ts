@@ -2,6 +2,7 @@ import { app, dialog, type OpenDialogOptions } from 'electron'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, extname, join } from 'path'
 import { randomUUID } from 'crypto'
+import { resolveStoredBookPath, isSafeStoredBookName } from '../../shared/book-path'
 import { readTxtFile } from './txt-reader'
 import type {
   BookContent,
@@ -55,12 +56,13 @@ function normalizeProgress(raw?: BookProgress): BookProgress {
 
 function normalizeBook(raw: Partial<BookRecord> & { id: string; title: string; storedName: string }): BookRecord {
   const importedAt = raw.importedAt ?? Date.now()
+  const storedName = isSafeStoredBookName(raw.storedName) ? raw.storedName : `${raw.id}${extname(raw.storedName).toLowerCase() || '.txt'}`
   return {
     id: raw.id,
     title: raw.title,
-    format: inferFormat(raw),
+    format: inferFormat({ ...raw, storedName }),
     shelfId: raw.shelfId ?? DEFAULT_SHELF,
-    storedName: raw.storedName,
+    storedName,
     importedAt,
     lastOpenedAt: raw.lastOpenedAt ?? importedAt,
     progress: normalizeProgress(raw.progress)
@@ -88,7 +90,11 @@ function titleFromPath(filePath: string): string {
 }
 
 function storedFilePath(storedName: string): string {
-  return join(booksDir(), storedName)
+  const filePath = resolveStoredBookPath(booksDir(), storedName)
+  if (!filePath) {
+    throw new Error('无效的书籍文件路径')
+  }
+  return filePath
 }
 
 function sortBooks(books: BookRecord[]): BookRecord[] {
@@ -266,7 +272,10 @@ function importDialogOptions(): OpenDialogOptions {
 export async function importBooksFromDialog(
   browserWindow: Electron.BrowserWindow | null
 ): Promise<{ imported: BookRecord[]; skipped: number; unsupported: number; duplicate: number }> {
-  const result = await dialog.showOpenDialog(browserWindow ?? undefined, importDialogOptions())
+  const dialogOptions = importDialogOptions()
+  const result = browserWindow
+    ? await dialog.showOpenDialog(browserWindow, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions)
 
   if (result.canceled || result.filePaths.length === 0) {
     return { imported: [], skipped: 0, unsupported: 0, duplicate: 0 }
