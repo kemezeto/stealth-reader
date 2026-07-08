@@ -166,10 +166,6 @@ export default function App(): JSX.Element {
                 saveSettings({ windowOpacity: value })
                 void window.stealth.setWindowOpacity(value)
               }}
-              onContentOpacityChange={(value) => {
-                saveSettings({ contentOpacity: value })
-                void window.stealth.setContentOpacity(value)
-              }}
             />
           ) : null}
         </div>

@@ -13,6 +13,7 @@ interface BrowserBookmarkSheetProps {
   currentUrl: string
   onSettingsChange: (partial: Partial<AppSettings>) => void
   onClose: () => void
+  onNavigate?: (url: string) => void
 }
 
 export default function BrowserBookmarkSheet({
@@ -20,7 +21,8 @@ export default function BrowserBookmarkSheet({
   settings,
   currentUrl,
   onSettingsChange,
-  onClose
+  onClose,
+  onNavigate
 }: BrowserBookmarkSheetProps): JSX.Element | null {
   const bookmarks = settings.browserBookmarks ?? []
   const currentSaved = isBookmarked(bookmarks, currentUrl)
@@ -35,8 +37,12 @@ export default function BrowserBookmarkSheet({
   }
 
   const openBookmark = (url: string): void => {
-    void window.stealth.browserNavigate(url)
-    onSettingsChange({ lastUrl: url })
+    if (onNavigate) {
+      onNavigate(url)
+    } else {
+      void window.stealth.browserNavigate(url)
+      onSettingsChange({ lastUrl: url })
+    }
     onClose()
   }
 

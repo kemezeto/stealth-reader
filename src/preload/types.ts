@@ -195,6 +195,8 @@ export interface StealthApi {
   previewLockEffect: () => Promise<void>
   notifyLockActivity: () => void
   onLockStateChanged: (callback: (state: LockPublicState) => void) => () => void
+  getBrowserCacheSize: () => Promise<number>
+  clearBrowserCache: () => Promise<void>
   getWebviewPreloadPath: () => Promise<string>
   listShelves: () => Promise<ShelfInfo[]>
   listBooks: (shelfId?: ShelfId) => Promise<BookRecord[]>

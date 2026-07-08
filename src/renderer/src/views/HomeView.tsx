@@ -24,7 +24,6 @@ export default function HomeView({
 }: HomeViewProps): JSX.Element {
   const [browsing, setBrowsing] = useState(false)
   const [browsingUrl, setBrowsingUrl] = useState(settings.lastUrl)
-  const [portalUrlInput, setPortalUrlInput] = useState(settings.lastUrl)
 
   const browser = useWebviewBrowser({
     active: browsing,
@@ -46,7 +45,6 @@ export default function HomeView({
         return
       }
 
-      setPortalUrlInput(rawUrl.trim() || nextUrl)
       setBrowsingUrl(nextUrl)
       setBrowsing(true)
       onStatusChange('加载中')
@@ -57,13 +55,8 @@ export default function HomeView({
 
   const exitBrowsing = useCallback((): void => {
     setBrowsing(false)
-    setPortalUrlInput(browserUrlInput)
     onStatusChange('就绪')
-  }, [browserUrlInput, onStatusChange])
-
-  const toggleTransparentMode = useCallback((): void => {
-    onSettingsChange({ transparentMode: !settings.transparentMode })
-  }, [onSettingsChange, settings.transparentMode])
+  }, [onStatusChange])
 
   useEffect(() => {
     onImmersiveChange(browsing)
@@ -83,12 +76,6 @@ export default function HomeView({
   }
 
   return (
-    <PortalHome
-      settings={settings}
-      urlInput={portalUrlInput}
-      onUrlInputChange={setPortalUrlInput}
-      onOpenUrl={openUrl}
-      onToggleTransparent={toggleTransparentMode}
-    />
+    <PortalHome settings={settings} onOpenUrl={openUrl} onSettingsChange={onSettingsChange} />
   )
 }

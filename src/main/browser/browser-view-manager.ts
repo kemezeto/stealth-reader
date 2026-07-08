@@ -1,5 +1,6 @@
 import { BrowserView, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { BROWSER_SESSION_PARTITION } from './browser-cache'
 import { applyMobileWebProfile } from './mobile-profile'
 
 const HIDE_SCROLLBAR_CSS = `
@@ -125,7 +126,7 @@ export class BrowserViewManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
-        partition: 'persist:stealth',
+        partition: BROWSER_SESSION_PARTITION,
         backgroundThrottling: false
       }
     })

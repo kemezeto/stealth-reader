@@ -16,6 +16,7 @@ import type { AppSettings } from '../../../preload/types'
 import ShortcutsPanel from '../components/settings/ShortcutsPanel'
 import WindowSizePanel from '../components/settings/WindowSizePanel'
 import DefaultSearchPanel from '../components/settings/DefaultSearchPanel'
+import BrowserCachePanel from '../components/settings/BrowserCachePanel'
 import OtherSettingsPanel from '../components/settings/OtherSettingsPanel'
 import InterfaceLockPanel from '../components/settings/InterfaceLockPanel'
 import type { LockPublicState } from '../../../preload/types'
@@ -36,7 +37,6 @@ interface SettingsViewProps {
   onSettingsChange: (partial: Partial<AppSettings>) => void
   onRefreshLockState: () => void
   onWindowOpacityChange: (value: number) => void
-  onContentOpacityChange: (value: number) => void
 }
 
 const MENU_ITEMS: Array<{ id: SettingsSection; label: string; icon: LucideIcon }> = [
@@ -66,8 +66,7 @@ export default function SettingsView({
   lockState,
   onSettingsChange,
   onRefreshLockState,
-  onWindowOpacityChange,
-  onContentOpacityChange
+  onWindowOpacityChange
 }: SettingsViewProps): JSX.Element {
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null)
 
@@ -89,19 +88,6 @@ export default function SettingsView({
                   onChange={(event) => onWindowOpacityChange(Number(event.target.value))}
                 />
                 <strong>{settings.windowOpacity}%</strong>
-              </div>
-            </label>
-            <label className="settings-row">
-              <span>内容透明度</span>
-              <div className="settings-row__control">
-                <input
-                  type="range"
-                  min={20}
-                  max={100}
-                  value={settings.contentOpacity}
-                  onChange={(event) => onContentOpacityChange(Number(event.target.value))}
-                />
-                <strong>{settings.contentOpacity}%</strong>
               </div>
             </label>
             <label className="settings-row settings-row--toggle">
@@ -181,14 +167,7 @@ export default function SettingsView({
         return <DefaultSearchPanel settings={settings} onSettingsChange={onSettingsChange} />
 
       case 'cache':
-        return (
-          <div className="settings-detail">
-            <p className="settings-note">浏览器 webview 使用持久化分区，站点登录状态会保留。</p>
-            <button type="button" className="settings-action" disabled>
-              清除网页缓存（即将推出）
-            </button>
-          </div>
-        )
+        return <BrowserCachePanel />
 
       case 'other':
         return <OtherSettingsPanel settings={settings} onSettingsChange={onSettingsChange} />

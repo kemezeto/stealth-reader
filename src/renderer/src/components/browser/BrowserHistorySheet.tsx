@@ -12,21 +12,27 @@ interface BrowserHistorySheetProps {
   settings: AppSettings
   onSettingsChange: (partial: Partial<AppSettings>) => void
   onClose: () => void
+  onNavigate?: (url: string) => void
 }
 
 export default function BrowserHistorySheet({
   open,
   settings,
   onSettingsChange,
-  onClose
+  onClose,
+  onNavigate
 }: BrowserHistorySheetProps): JSX.Element | null {
   const history = settings.browserHistory ?? []
 
   if (!open) return null
 
   const openHistoryItem = (url: string): void => {
-    void window.stealth.browserNavigate(url)
-    onSettingsChange({ lastUrl: url })
+    if (onNavigate) {
+      onNavigate(url)
+    } else {
+      void window.stealth.browserNavigate(url)
+      onSettingsChange({ lastUrl: url })
+    }
     onClose()
   }
 

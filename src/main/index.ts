@@ -26,6 +26,7 @@ import {
 } from '../shared/window-size'
 import { scheduleWindowRedraw } from './window-redraw'
 import { BrowserViewManager } from './browser/browser-view-manager'
+import { registerBrowserCacheIpc } from './browser/browser-cache'
 import { createBrowserToolbarRevealTracker } from './browser/browser-toolbar-reveal-tracker'
 
 registerBookScheme()
@@ -253,6 +254,9 @@ function applyGlobalHotkeys(): void {
 function setupBrowserViewManager(): void {
   browserViewManager = new BrowserViewManager(() => mainWindow)
   browserViewManager.registerIpc()
+  registerBrowserCacheIpc(() => {
+    browserViewManager?.reload()
+  })
   browserToolbarRevealTracker = createBrowserToolbarRevealTracker(() => mainWindow)
 }
 

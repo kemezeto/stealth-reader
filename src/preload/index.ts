@@ -75,6 +75,8 @@ const stealth: StealthApi = {
     ipcRenderer.on('lock-state-changed', listener)
     return () => ipcRenderer.removeListener('lock-state-changed', listener)
   },
+  getBrowserCacheSize: () => ipcRenderer.invoke('browser-cache-size'),
+  clearBrowserCache: () => ipcRenderer.invoke('browser-clear-cache'),
   getWebviewPreloadPath: () => ipcRenderer.invoke('get-webview-preload-path'),
   listShelves: () => ipcRenderer.invoke('books-list-shelves'),
   listBooks: (shelfId?: ShelfId) => ipcRenderer.invoke('books-list', shelfId),

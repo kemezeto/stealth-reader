@@ -6,7 +6,7 @@ export interface WindowSize {
 }
 
 export const WINDOW_SIZE_PRESETS: Record<'portrait' | 'landscape', WindowSize> = {
-  portrait: { width: 410, height: 820 },
+  portrait: { width: 410, height: 840 },
   landscape: { width: 820, height: 600 }
 }
 
