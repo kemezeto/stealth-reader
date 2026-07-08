@@ -46,6 +46,7 @@ interface AppSettings {
   transparentMode: boolean
   activeTab: 'home' | 'bookshelf' | 'settings'
   lastBookId: string | null
+  shelfViewMode: 'list' | 'cover'
   readerFontSize: number
   epubFontColor: string
   epubLineHeight: number
@@ -92,6 +93,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   transparentMode: true,
   activeTab: 'home',
   lastBookId: null,
+  shelfViewMode: 'list',
   readerFontSize: 16,
   epubFontColor: '#1f2937',
   epubLineHeight: 2,

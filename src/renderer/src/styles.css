@@ -1338,9 +1338,46 @@ button {
 .shelf-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.shelf-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.shelf-view-toggle__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.shelf-view-toggle__btn:hover {
+  color: var(--ink);
+  background: var(--bg-hover);
+}
+
+.shelf-view-toggle__btn--active {
+  background: var(--bg-card);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .shelf-header h2 {
@@ -1593,36 +1630,106 @@ button {
   background: var(--bg-hover);
 }
 
-.book-list__cover {
+.book-cover {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 54px;
-  border-radius: 8px;
-  background: linear-gradient(160deg, #dbeafe, #eff6ff 55%, #f8fafc);
-  border: 1px solid var(--line);
+  border: 2px solid #2b2b2b;
+  border-radius: 3px;
+  background-color: #faf6ef;
+  box-shadow: 2px 2px 0 #2b2b2b;
   overflow: hidden;
 }
 
-.book-list__format--txt,
-.book-list__format--epub,
-.book-list__format--pdf {
-  background: transparent;
+.book-cover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      32deg,
+      transparent,
+      transparent 4px,
+      rgba(43, 43, 43, 0.07) 4px,
+      rgba(43, 43, 43, 0.07) 5px
+    ),
+    repeating-linear-gradient(
+      148deg,
+      transparent,
+      transparent 6px,
+      rgba(43, 43, 43, 0.05) 6px,
+      rgba(43, 43, 43, 0.05) 7px
+    );
+  pointer-events: none;
 }
 
-.book-list__format {
-  position: static;
-  padding: 0;
-  border-radius: 0;
-  color: #000000;
-  font-size: 9px;
-  font-weight: 700;
+.book-cover::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1.5px dashed rgba(43, 43, 43, 0.28);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.book-cover--list {
+  width: 40px;
+  height: 54px;
+  box-shadow: 1.5px 1.5px 0 #2b2b2b;
+}
+
+.book-cover--list::after {
+  inset: 2px;
+  border-width: 1px;
+}
+
+.book-cover--grid {
+  width: 64px;
+  max-width: 64px;
+  aspect-ratio: 3 / 4;
+  border-radius: 4px;
+  box-shadow: 3px 3px 0 #2b2b2b;
+}
+
+.book-cover--txt {
+  background-color: #ffe9a8;
+}
+
+.book-cover--epub {
+  background-color: #b8e6c8;
+}
+
+.book-cover--pdf {
+  background-color: #ffc4b0;
+}
+
+.book-cover__format {
+  position: relative;
+  z-index: 1;
+  padding: 2px 5px;
+  border: 2px solid #2b2b2b;
+  border-radius: 2px;
+  background: #fffdf6;
+  color: #2b2b2b;
+  font-weight: 900;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-align: center;
+  box-shadow: 1px 1px 0 #2b2b2b;
+}
+
+.book-cover--list .book-cover__format {
+  font-size: 7px;
+  padding: 1px 3px;
+  border-width: 1.5px;
+  box-shadow: 1px 1px 0 #2b2b2b;
+}
+
+.book-cover--grid .book-cover__format {
+  font-size: 9px;
+  padding: 3px 6px;
 }
 
 .book-list__meta {
@@ -1673,6 +1780,90 @@ button {
   background: #fef2f2;
 }
 
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 12px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-grid__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.book-grid__item--recent .book-cover--grid {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.book-grid__open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 2px 6px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: background 0.15s ease;
+}
+
+.book-grid__open:hover {
+  background: var(--bg-hover);
+}
+
+.book-grid__title {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.book-grid__item--recent .book-grid__title {
+  color: var(--accent);
+}
+
+.book-grid__progress {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.book-grid__remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.book-grid__item:hover .book-grid__remove,
+.book-grid__item:focus-within .book-grid__remove {
+  opacity: 1;
+}
+
+.book-grid__remove:hover {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
 .shelf-empty {
   display: grid;
   justify-items: center;
@@ -1683,11 +1874,12 @@ button {
 }
 
 .shelf-empty__cover {
-  width: 88px;
-  height: 118px;
-  border-radius: 12px;
-  background: linear-gradient(160deg, #dbeafe, #eff6ff);
-  border: 1px solid var(--line);
+  width: 64px;
+  height: 86px;
+  border-radius: 4px;
+  background-color: #f3f0e8;
+  border: 2px dashed #2b2b2b;
+  box-shadow: 2px 2px 0 #2b2b2b;
 }
 
 .shelf-empty p {
@@ -1864,6 +2056,7 @@ button {
 /* EPUB reader (react-reader / epub.js) */
 
 .epub-reader {
+  position: relative;
   height: 100%;
   min-height: 0;
   background: var(--bg-card);
@@ -1916,6 +2109,7 @@ button {
 /* PDF reader (react-pdf / pdf.js) */
 
 .pdf-reader {
+  position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   height: 100%;
@@ -2036,6 +2230,117 @@ button {
   outline: none;
   border-color: var(--accent);
 }
+
+/* Reader TOC sheet */
+
+.reader-toc-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.reader-toc-sheet--open {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.reader-toc-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.18);
+  opacity: 0;
+  cursor: default;
+  transition: opacity 0.2s ease;
+}
+
+.reader-toc-sheet--open .reader-toc-sheet__backdrop {
+  opacity: 1;
+}
+
+.reader-toc-sheet__panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(280px, 86vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-right: 1px solid var(--line);
+  box-shadow: 8px 0 24px rgba(15, 23, 42, 0.08);
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+}
+
+.reader-toc-sheet--open .reader-toc-sheet__panel {
+  transform: translateX(0);
+}
+
+.reader-toc-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.reader-toc-sheet__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.reader-toc-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 0 12px;
+}
+
+.reader-toc-sheet__empty {
+  margin: 0;
+  padding: 16px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.reader-toc-sheet__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reader-toc-sheet__item {
+  margin: 0;
+}
+
+.reader-toc-sheet__link {
+  display: block;
+  width: 100%;
+  padding: 8px 14px 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.reader-toc-sheet__link:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.page-toolbar__toc {
+  flex-shrink: 0;
+}
+
 
 /* Settings */
 
@@ -3661,6 +3966,7 @@ button {
 .shell.shell--ghost .page-nav-bar,
 .shell.shell--ghost .shelf-header,
 .shell.shell--ghost .book-list__item,
+.shell.shell--ghost .book-grid__item,
 .shell.shell--ghost .portal-nav {
   border-color: transparent;
 }
@@ -3679,14 +3985,15 @@ button {
 .shell.shell--ghost .browser-zoom-sheet,
 .shell.shell--ghost .browser-bookmark-sheet,
 .shell.shell--ghost .browser-history-sheet,
+.shell.shell--ghost .reader-toc-sheet__panel,
 .shell.shell--ghost .local-reader,
 .shell.shell--ghost .epub-reader,
 .shell.shell--ghost .pdf-reader,
 .shell.shell--ghost .pdf-reader__toolbar,
 .shell.shell--ghost .pdf-reader__page-wrap,
 .shell.shell--ghost .empty-state__cover,
-.shell.shell--ghost .book-list__cover,
-.shell.shell--ghost .book-list__format {
+.shell.shell--ghost .book-cover,
+.shell.shell--ghost .book-cover__format {
   background: transparent !important;
   color: #000000 !important;
 }
@@ -3712,6 +4019,7 @@ button {
 .shell.shell--ghost .nav-bar-btn:hover,
 .shell.shell--ghost .nav-bar-btn--accent:hover,
 .shell.shell--ghost .book-list__open:hover,
+.shell.shell--ghost .book-grid__open:hover,
 .shell.shell--ghost .portal-link:hover,
 .shell.shell--ghost .portal-nav button.is-active,
 .shell.shell--ghost .settings-action:hover,

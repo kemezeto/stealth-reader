@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PDFPageProxy } from 'pdfjs-dist'
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import type { BookMeta, BookProgress } from '../../../preload/types'
 import { Document, Page, PDF_DOCUMENT_OPTIONS } from '../lib/pdfWorker'
+import { pdfOutlineToTocItems, resolvePdfOutlinePage } from '../lib/pdfOutline'
 import { useHotkeyHandler } from '../hooks/useHotkeyHandler'
+import ReaderTocSheet from './reader/ReaderTocSheet'
+import type { ReaderTocApi, TocItem } from '../types/toc'
 
 type PdfFitMode = 'width' | 'page' | 'custom'
 
@@ -19,6 +22,7 @@ interface PdfReaderProps {
   readerPrevPage: string
   readerNextPage: string
   onProgressChange: (progress: BookProgress) => void
+  onTocApiChange?: (api: ReaderTocApi | null) => void
 }
 
 export default function PdfReader({
@@ -26,9 +30,11 @@ export default function PdfReader({
   contentOpacity,
   readerPrevPage,
   readerNextPage,
-  onProgressChange
+  onProgressChange,
+  onTocApiChange
 }: PdfReaderProps): JSX.Element {
   const pageAreaRef = useRef<HTMLDivElement | null>(null)
+  const pdfRef = useRef<PDFDocumentProxy | null>(null)
   const saveTimerRef = useRef<number | null>(null)
   const dragRef = useRef({
     active: false,
@@ -57,6 +63,8 @@ export default function PdfReader({
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
   const [loadProgress, setLoadProgress] = useState<number | null>(null)
+  const [tocItems, setTocItems] = useState<TocItem[]>([])
+  const [tocOpen, setTocOpen] = useState(false)
 
   const resetPan = useCallback(() => {
     setPan({ x: 0, y: 0 })
@@ -143,6 +151,37 @@ export default function PdfReader({
     [onProgressChange]
   )
 
+  const openToc = useCallback(() => {
+    setTocOpen(true)
+  }, [])
+
+  const handleTocSelect = useCallback(
+    (item: TocItem) => {
+      const pdf = pdfRef.current
+      if (!pdf) return
+      void resolvePdfOutlinePage(pdf, item.dest).then((page) => {
+        if (page) {
+          setPageNumber(page)
+          resetPan()
+        }
+      })
+    },
+    [resetPan]
+  )
+
+  useEffect(() => {
+    onTocApiChange?.({
+      hasToc: tocItems.length > 0,
+      openToc
+    })
+  }, [onTocApiChange, openToc, tocItems])
+
+  useEffect(() => {
+    return () => {
+      onTocApiChange?.(null)
+    }
+  }, [onTocApiChange])
+
   useEffect(() => {
     setError('')
     setNumPages(0)
@@ -150,6 +189,9 @@ export default function PdfReader({
     setPageSize({ w: 0, h: 0 })
     setFitMode('width')
     setZoom(1)
+    setTocItems([])
+    setTocOpen(false)
+    pdfRef.current = null
     resetPan()
     const initialPage = meta.progress.page && meta.progress.page > 0 ? meta.progress.page : 1
     setPageNumber(initialPage)
@@ -354,10 +396,14 @@ export default function PdfReader({
                 setLoadProgress(Math.min(99, Math.round((loaded / total) * 100)))
               }
             }}
-            onLoadSuccess={({ numPages: total }) => {
+            onLoadSuccess={(pdf) => {
+              pdfRef.current = pdf
               setLoadProgress(100)
-              setNumPages(total)
-              setPageNumber((current) => Math.min(Math.max(current, 1), total))
+              setNumPages(pdf.numPages)
+              setPageNumber((current) => Math.min(Math.max(current, 1), pdf.numPages))
+              void pdf.getOutline().then((outline) => {
+                setTocItems(outline?.length ? pdfOutlineToTocItems(outline) : [])
+              })
             }}
             onLoadError={(reason) => {
               setError(reason instanceof Error ? reason.message : 'PDF 加载失败')
@@ -404,6 +450,12 @@ export default function PdfReader({
           下一页
         </button>
       </div>
+      <ReaderTocSheet
+        open={tocOpen}
+        items={tocItems}
+        onClose={() => setTocOpen(false)}
+        onSelect={handleTocSelect}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ export type ActiveTab = 'home' | 'bookshelf' | 'settings'
 
 export type BookFormat = 'txt' | 'epub' | 'pdf'
 export type ShelfId = 'default'
+export type ShelfViewMode = 'list' | 'cover'
 
 export interface BookProgress {
   scrollTop: number
@@ -89,6 +90,7 @@ export interface AppSettings {
   transparentMode: boolean
   activeTab: ActiveTab
   lastBookId: string | null
+  shelfViewMode: ShelfViewMode
   readerFontSize: number
   epubFontColor: string
   epubLineHeight: number

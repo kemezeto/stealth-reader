@@ -1,9 +1,11 @@
-import type { BookRecord } from '../../../../preload/types'
+import type { BookRecord, ShelfViewMode } from '../../../../preload/types'
+import BookCoverCard from './BookCoverCard'
 import BookListItem from './BookListItem'
 
 interface BookListProps {
   books: BookRecord[]
   lastBookId: string | null
+  viewMode: ShelfViewMode
   onOpen: (bookId: string) => void
   onRemove: (bookId: string) => void
   onImport: () => void
@@ -12,6 +14,7 @@ interface BookListProps {
 export default function BookList({
   books,
   lastBookId,
+  viewMode,
   onOpen,
   onRemove,
   onImport
@@ -28,7 +31,19 @@ export default function BookList({
     )
   }
 
-  return (
+  return viewMode === 'cover' ? (
+    <ul className="book-grid">
+      {books.map((book) => (
+        <BookCoverCard
+          key={book.id}
+          book={book}
+          isRecent={book.id === lastBookId}
+          onOpen={onOpen}
+          onRemove={onRemove}
+        />
+      ))}
+    </ul>
+  ) : (
     <ul className="book-list">
       {books.map((book) => (
         <BookListItem

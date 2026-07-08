@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Book, Rendition } from 'epubjs'
+import type { Book, NavItem, Rendition } from 'epubjs'
 import { ReactReader, ReactReaderStyle } from 'react-reader'
 import type { BookMeta, BookProgress } from '../../../preload/types'
 import { toArrayBuffer } from '../lib/bytes'
 import { useHotkeyHandler } from '../hooks/useHotkeyHandler'
+import ReaderTocSheet from './reader/ReaderTocSheet'
+import type { ReaderTocApi, TocItem } from '../types/toc'
 
 const GHOST_THEME = 'stealth-ghost'
 const EPUB_GHOST_STYLE_ID = 'stealth-epub-ghost'
@@ -231,6 +233,16 @@ interface EpubReaderProps {
   readerPrevPage: string
   readerNextPage: string
   onProgressChange: (progress: BookProgress) => void
+  onTocApiChange?: (api: ReaderTocApi | null) => void
+}
+
+function epubNavToTocItems(items: NavItem[]): TocItem[] {
+  return items.map((item, index) => ({
+    id: item.id || `${item.href}-${index}`,
+    label: item.label,
+    href: item.href,
+    subitems: item.subitems?.length ? epubNavToTocItems(item.subitems) : undefined
+  }))
 }
 
 export default function EpubReader({
@@ -242,7 +254,8 @@ export default function EpubReader({
   ghostMode,
   readerPrevPage,
   readerNextPage,
-  onProgressChange
+  onProgressChange,
+  onTocApiChange
 }: EpubReaderProps): JSX.Element {
   const bookRef = useRef<Book | null>(null)
   const renditionRef = useRef<Rendition | null>(null)
@@ -254,6 +267,8 @@ export default function EpubReader({
   const [bookData, setBookData] = useState<ArrayBuffer | null>(null)
   const [loadError, setLoadError] = useState('')
   const [location, setLocation] = useState<string | number | null>(meta.progress.location ?? null)
+  const [tocItems, setTocItems] = useState<TocItem[]>([])
+  const [tocOpen, setTocOpen] = useState(false)
 
   const readerStyles = useMemo<ReactReaderStyleMap>(
     () => ({
@@ -302,6 +317,8 @@ export default function EpubReader({
     setBookData(null)
     setLoadError('')
     setLocation(meta.progress.location ?? null)
+    setTocItems([])
+    setTocOpen(false)
 
     void window.stealth
       .getBookBytes(meta.id)
@@ -344,6 +361,33 @@ export default function EpubReader({
     },
     [meta.progress.percent, scheduleSave]
   )
+
+  const openToc = useCallback(() => {
+    setTocOpen(true)
+  }, [])
+
+  const handleTocChanged = useCallback((toc: NavItem[]) => {
+    setTocItems(epubNavToTocItems(toc))
+  }, [])
+
+  const handleTocSelect = useCallback((item: TocItem) => {
+    if (item.href) {
+      setLocation(item.href)
+    }
+  }, [])
+
+  useEffect(() => {
+    onTocApiChange?.({
+      hasToc: tocItems.length > 0,
+      openToc
+    })
+  }, [onTocApiChange, openToc, tocItems])
+
+  useEffect(() => {
+    return () => {
+      onTocApiChange?.(null)
+    }
+  }, [onTocApiChange])
 
   const handleRendition = useCallback(
     (rendition: Rendition) => {
@@ -447,6 +491,7 @@ export default function EpubReader({
         location={location}
         locationChanged={handleLocationChanged}
         getRendition={handleRendition}
+        tocChanged={handleTocChanged}
         readerStyles={readerStyles}
         showToc={false}
         swipeable={false}
@@ -454,6 +499,12 @@ export default function EpubReader({
         epubInitOptions={{ openAs: 'binary' }}
         epubOptions={epubOptions}
         errorView={<div className="reader-state reader-state--error">EPUB 解析失败，文件可能已损坏</div>}
+      />
+      <ReaderTocSheet
+        open={tocOpen}
+        items={tocItems}
+        onClose={() => setTocOpen(false)}
+        onSelect={handleTocSelect}
       />
     </div>
   )

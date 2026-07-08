@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { LayoutGrid, List } from 'lucide-react'
 import type { AppSettings, BookProgress, BookRecord } from '../../../preload/types'
 import BookReader from '../components/BookReader'
 import BookList from '../components/shelf/BookList'
 import { importBooksFlow } from '../booksImport'
+import type { ReaderTocApi } from '../types/toc'
 
 interface BookshelfViewProps {
   settings: AppSettings
@@ -22,6 +24,7 @@ export default function BookshelfView({
   const [books, setBooks] = useState<BookRecord[]>([])
   const [activeBookId, setActiveBookId] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
+  const [tocApi, setTocApi] = useState<ReaderTocApi | null>(null)
 
   const refreshBooks = useCallback(async (): Promise<BookRecord[]> => {
     const next = await window.stealth.listBooks('default')
@@ -98,6 +101,17 @@ export default function BookshelfView({
               ←
             </button>
             <span className="page-toolbar__title">{activeBook?.title ?? '阅读中'}</span>
+            {tocApi?.hasToc ? (
+              <button
+                type="button"
+                className="icon-btn icon-btn--ghost page-toolbar__toc"
+                onClick={() => tocApi.openToc()}
+                aria-label="目录"
+                title="目录"
+              >
+                <List size={18} strokeWidth={2} aria-hidden="true" />
+              </button>
+            ) : null}
             {activeBook?.format !== 'pdf' ? (
               <label className="slider-field slider-field--inline">
                 <span>{settings.readerFontSize}px</span>
@@ -124,6 +138,7 @@ export default function BookshelfView({
             readerPrevPage={settings.readerPrevPage}
             readerNextPage={settings.readerNextPage}
             onProgressChange={(progress) => void saveProgress(progress)}
+            onTocApiChange={setTocApi}
           />
         </div>
       </div>
@@ -135,12 +150,45 @@ export default function BookshelfView({
       <div className="shelf-card">
         <div className="shelf-header">
           <h2>书架 ({books.length} 本)</h2>
+          <div className="shelf-view-toggle" role="radiogroup" aria-label="书架展示方式">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={settings.shelfViewMode === 'list'}
+              className={
+                settings.shelfViewMode === 'list'
+                  ? 'shelf-view-toggle__btn shelf-view-toggle__btn--active'
+                  : 'shelf-view-toggle__btn'
+              }
+              onClick={() => onSettingsChange({ shelfViewMode: 'list' })}
+              aria-label="列表展示"
+              title="列表展示"
+            >
+              <List size={16} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={settings.shelfViewMode === 'cover'}
+              className={
+                settings.shelfViewMode === 'cover'
+                  ? 'shelf-view-toggle__btn shelf-view-toggle__btn--active'
+                  : 'shelf-view-toggle__btn'
+              }
+              onClick={() => onSettingsChange({ shelfViewMode: 'cover' })}
+              aria-label="封面展示"
+              title="封面展示"
+            >
+              <LayoutGrid size={16} strokeWidth={2} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div className="shelf-main__body">
           <BookList
             books={books}
             lastBookId={settings.lastBookId}
+            viewMode={settings.shelfViewMode ?? 'list'}
             onOpen={(bookId) => void openBook(bookId)}
             onRemove={(bookId) => void removeBook(bookId)}
             onImport={() => void importBooks()}
