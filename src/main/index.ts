@@ -26,6 +26,7 @@ import {
 } from '../shared/window-size'
 import { scheduleWindowRedraw } from './window-redraw'
 import { BrowserViewManager } from './browser/browser-view-manager'
+import { createBrowserToolbarRevealTracker } from './browser/browser-toolbar-reveal-tracker'
 
 registerBookScheme()
 
@@ -55,6 +56,13 @@ interface AppSettings {
   browserTabPrev: string
   browserTabNext: string
   browserTabSwitchEnabled: boolean
+  browserToolbarAutoHide: boolean
+  browserShowScrollbar: boolean
+  browserZoomPercent: number
+  browserZoomScope: 'domain' | 'global'
+  browserZoomByDomain: Record<string, number>
+  browserBookmarks: Array<{ id: string; title: string; url: string; createdAt: number }>
+  browserHistory: Array<{ id: string; title: string; url: string; visitedAt: number }>
   windowWidth: number
   windowHeight: number
   windowSizePreset: WindowSizePreset
@@ -94,6 +102,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   browserTabPrev: 'Alt+A',
   browserTabNext: 'Alt+D',
   browserTabSwitchEnabled: false,
+  browserToolbarAutoHide: false,
+  browserShowScrollbar: true,
+  browserZoomPercent: 100,
+  browserZoomScope: 'domain',
+  browserZoomByDomain: {},
+  browserBookmarks: [],
+  browserHistory: [],
   windowWidth: WINDOW_SIZE_PRESETS.portrait.width,
   windowHeight: WINDOW_SIZE_PRESETS.portrait.height,
   windowSizePreset: 'portrait',
@@ -113,6 +128,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 let mainWindow: BrowserWindow | null = null
 let browserViewManager: BrowserViewManager | null = null
+let browserToolbarRevealTracker: ReturnType<typeof createBrowserToolbarRevealTracker> | null = null
 let settings = loadSettings()
 let autoHideTracker: ReturnType<typeof createAutoHideTracker> | null = null
 let savedWindowBounds: Electron.Rectangle | null = null
@@ -237,6 +253,7 @@ function applyGlobalHotkeys(): void {
 function setupBrowserViewManager(): void {
   browserViewManager = new BrowserViewManager(() => mainWindow)
   browserViewManager.registerIpc()
+  browserToolbarRevealTracker = createBrowserToolbarRevealTracker(() => mainWindow)
 }
 
 function requestQuit(): void {
@@ -349,6 +366,11 @@ function createWindow(): void {
 
   mainWindow.on('blur', () => {
     scheduleWindowRedraw(mainWindow!, settings.windowOpacity)
+  })
+
+  mainWindow.on('resize', () => {
+    if (mainWindow?.isDestroyed()) return
+    mainWindow.webContents.send('window-resized')
   })
 
   mainWindow.on('close', (event) => {
@@ -491,6 +513,13 @@ function setupIpc(): void {
     toggleWindowMaximize(mainWindow)
   })
   ipcMain.on('window-close', () => handleWindowCloseRequest())
+
+  ipcMain.on(
+    'browser-toolbar-state',
+    (_event, state: { browsing: boolean; autoHide: boolean; hidden: boolean }) => {
+      browserToolbarRevealTracker?.setState(state)
+    }
+  )
 }
 
 app.whenReady().then(() => {
@@ -517,6 +546,7 @@ app.on('will-quit', () => {
   disposeGlobalHotkeys()
   disposeTray()
   browserViewManager?.dispose()
+  browserToolbarRevealTracker?.dispose()
   autoHideTracker?.dispose()
 })
 

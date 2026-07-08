@@ -57,10 +57,35 @@ export function buildTransparencyCss(hostname: string): string {
     footer,
     section,
     article,
-    aside {
+    aside,
+    div,
+    span,
+    p,
+    ul,
+    ol,
+    li,
+    table,
+    tr,
+    td,
+    th,
+    form,
+    button,
+    label,
+    input,
+    textarea,
+    select {
       background-color: transparent !important;
       background-image: none !important;
       background: transparent !important;
+    }
+
+    img,
+    picture,
+    video,
+    canvas,
+    svg,
+    image {
+      background-color: transparent !important;
     }
   `
 

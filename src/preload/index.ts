@@ -22,6 +22,17 @@ const stealth: StealthApi = {
     ipcRenderer.on('auto-hide:state', listener)
     return () => ipcRenderer.removeListener('auto-hide:state', listener)
   },
+  onWindowResized: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('window-resized', listener)
+    return () => ipcRenderer.removeListener('window-resized', listener)
+  },
+  browserToolbarSetState: (state) => ipcRenderer.send('browser-toolbar-state', state),
+  onBrowserToolbarReveal: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('browser-toolbar-reveal', listener)
+    return () => ipcRenderer.removeListener('browser-toolbar-reveal', listener)
+  },
   browserMount: (options) => ipcRenderer.invoke('browser-mount', options),
   browserUnmount: () => ipcRenderer.invoke('browser-unmount'),
   browserSetBounds: (bounds) => ipcRenderer.send('browser-set-bounds', bounds),
@@ -31,6 +42,13 @@ const stealth: StealthApi = {
   browserReload: () => ipcRenderer.invoke('browser-reload'),
   browserSetTransparency: (transparent, opacity) =>
     ipcRenderer.send('browser-set-transparency', { transparent, opacity }),
+  browserSetScrollbar: (show) => ipcRenderer.send('browser-set-scrollbar', show),
+  browserSetZoom: (factor) => ipcRenderer.send('browser-set-zoom', factor),
+  onBrowserZoomChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, percent: number) => callback(percent)
+    ipcRenderer.on('browser-zoom-changed', listener)
+    return () => ipcRenderer.removeListener('browser-zoom-changed', listener)
+  },
   onBrowserEvent: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: import('./types').BrowserEventPayload) =>
       callback(payload)

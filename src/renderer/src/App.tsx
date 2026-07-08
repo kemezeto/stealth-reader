@@ -8,6 +8,7 @@ import ShelfSettingsDrawer from './components/shelf/ShelfSettingsDrawer'
 import BookshelfView from './views/BookshelfView'
 import HomeView from './views/HomeView'
 import SettingsView from './views/SettingsView'
+import BrowserBottomBar from './components/browser/BrowserBottomBar'
 import { importBooksFlow } from './booksImport'
 import { normalizeUrl } from './url'
 
@@ -17,6 +18,8 @@ export default function App(): JSX.Element {
   const [status, setStatus] = useState('加载中')
   const [shellHidden, setShellHidden] = useState(false)
   const [immersive, setImmersive] = useState(false)
+  const [browserBrowsing, setBrowserBrowsing] = useState(false)
+  const [browserCurrentUrl, setBrowserCurrentUrl] = useState('')
   const [booksRefreshKey, setBooksRefreshKey] = useState(0)
   const [shelfDrawerOpen, setShelfDrawerOpen] = useState(false)
   const [lockState, setLockState] = useState<LockPublicState>({
@@ -77,6 +80,8 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     setImmersive(false)
+    setBrowserBrowsing(false)
+    setBrowserCurrentUrl('')
     setShelfDrawerOpen(false)
   }, [settings?.activeTab])
 
@@ -94,8 +99,8 @@ export default function App(): JSX.Element {
     <div className={`shell${shellHidden ? ' shell--hidden' : ''}${settings.ghostMode ? ' shell--ghost' : ''}`}>
       <div
         className={`shell__main${immersive ? ' shell__main--immersive' : ''}${
-          !immersive && settings.activeTab === 'settings' ? ' shell__main--no-nav' : ''
-        }`}
+          browserBrowsing ? ' shell__main--browser' : ''
+        }${!immersive && settings.activeTab === 'settings' ? ' shell__main--no-nav' : ''}`}
       >
         <TopBar
           ghostMode={settings.ghostMode}
@@ -136,6 +141,8 @@ export default function App(): JSX.Element {
               onSettingsChange={saveSettings}
               onStatusChange={setStatus}
               onImmersiveChange={setImmersive}
+              onBrowsingChange={setBrowserBrowsing}
+              onBrowsingUrlChange={setBrowserCurrentUrl}
             />
           ) : null}
 
@@ -173,7 +180,13 @@ export default function App(): JSX.Element {
           onUnlocked={refreshLockState}
         />
 
-        {!immersive ? (
+        {browserBrowsing ? (
+          <BrowserBottomBar
+            settings={settings}
+            currentUrl={browserCurrentUrl}
+            onSettingsChange={saveSettings}
+          />
+        ) : !immersive ? (
           <div className="bottom-nav-bar">
             <BottomNav activeTab={settings.activeTab} onChange={(activeTab) => saveSettings({ activeTab })} />
           </div>

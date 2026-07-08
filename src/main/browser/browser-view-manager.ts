@@ -1,10 +1,25 @@
 import { BrowserView, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { applyMobileWebProfile } from './mobile-profile'
 
-const DESKTOP_CHROME_USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+const HIDE_SCROLLBAR_CSS = `
+  html, body {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  ::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+`
 
 const BROWSER_EVENT_CHANNEL = 'browser-event'
+const BROWSER_ZOOM_CHANGED_CHANNEL = 'browser-zoom-changed'
+
+const ZOOM_MIN = 0.25
+const ZOOM_MAX = 3
+const ZOOM_WHEEL_STEP = 0.05
 
 export interface BrowserBounds {
   x: number
@@ -18,6 +33,8 @@ export interface BrowserMountOptions {
   bounds: BrowserBounds
   transparent: boolean
   opacity: number
+  showScrollbar: boolean
+  zoomFactor: number
 }
 
 export type BrowserEventPayload =
@@ -25,6 +42,7 @@ export type BrowserEventPayload =
   | { type: 'navigate'; url: string; canGoBack: boolean; canGoForward: boolean }
   | { type: 'fail-load'; errorDescription: string }
   | { type: 'ready' }
+  | { type: 'sync-bounds' }
 
 function normalizeBounds(bounds: BrowserBounds): Electron.Rectangle {
   return {
@@ -41,6 +59,9 @@ export class BrowserViewManager {
   private opacity = 100
   private savedBounds: Electron.Rectangle | null = null
   private autoHideSuppressed = false
+  private showScrollbar = true
+  private scrollbarCssKey: string | null = null
+  private zoomFactor = 1
 
   constructor(private getWindow: () => BrowserWindow | null) {}
 
@@ -74,6 +95,16 @@ export class BrowserViewManager {
       this.opacity = payload.opacity
       this.applyTransparency()
     })
+
+    ipcMain.on('browser-set-scrollbar', (_event, show: boolean) => {
+      this.showScrollbar = show
+      void this.applyScrollbarVisibility()
+    })
+
+    ipcMain.on('browser-set-zoom', (_event, factor: number) => {
+      this.zoomFactor = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, factor))
+      this.applyZoom()
+    })
   }
 
   mount(options: BrowserMountOptions): void {
@@ -84,6 +115,9 @@ export class BrowserViewManager {
 
     this.transparent = options.transparent
     this.opacity = options.opacity
+    this.showScrollbar = options.showScrollbar
+    this.scrollbarCssKey = null
+    this.zoomFactor = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, options.zoomFactor))
 
     const view = new BrowserView({
       webPreferences: {
@@ -97,7 +131,7 @@ export class BrowserViewManager {
     })
 
     const { webContents } = view
-    webContents.setUserAgent(DESKTOP_CHROME_USER_AGENT)
+    applyMobileWebProfile(webContents)
 
     webContents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -107,6 +141,7 @@ export class BrowserViewManager {
     })
 
     this.attachWebContentsEvents(window, webContents)
+    this.attachWheelZoom(window, webContents)
 
     window.addBrowserView(view)
     view.setBounds(normalizeBounds(options.bounds))
@@ -131,6 +166,7 @@ export class BrowserViewManager {
     this.view = null
     this.autoHideSuppressed = false
     this.savedBounds = null
+    this.scrollbarCssKey = null
   }
 
   setBounds(bounds: BrowserBounds): void {
@@ -163,13 +199,10 @@ export class BrowserViewManager {
 
     if (!suppressed && this.autoHideSuppressed) {
       this.autoHideSuppressed = false
-      const bounds = this.savedBounds
       this.savedBounds = null
 
       window.addBrowserView(view)
-      if (bounds && bounds.width > 0 && bounds.height > 0) {
-        view.setBounds(bounds)
-      }
+      this.sendEvent(window, { type: 'sync-bounds' })
     }
   }
 
@@ -211,6 +244,56 @@ export class BrowserViewManager {
     webContents.send('content-opacity', this.opacity)
   }
 
+  private applyZoom(): void {
+    const webContents = this.view?.webContents
+    if (!webContents || webContents.isDestroyed()) return
+    webContents.setZoomFactor(this.zoomFactor)
+  }
+
+  private notifyZoomChanged(window: BrowserWindow): void {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) return
+    window.webContents.send(BROWSER_ZOOM_CHANGED_CHANNEL, Math.round(this.zoomFactor * 100))
+  }
+
+  private attachWheelZoom(window: BrowserWindow, webContents: Electron.WebContents): void {
+    webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'mouseWheel') return
+      if (!input.control && !input.meta) return
+
+      event.preventDefault()
+
+      const delta = input.deltaY > 0 ? -ZOOM_WHEEL_STEP : ZOOM_WHEEL_STEP
+      const next = Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.zoomFactor + delta)) * 100) / 100
+      if (next === this.zoomFactor) return
+
+      this.zoomFactor = next
+      this.applyZoom()
+      this.notifyZoomChanged(window)
+    })
+  }
+
+  private async applyScrollbarVisibility(): Promise<void> {
+    const webContents = this.view?.webContents
+    if (!webContents || webContents.isDestroyed()) return
+
+    if (this.scrollbarCssKey) {
+      try {
+        await webContents.removeInsertedCSS(this.scrollbarCssKey)
+      } catch {
+        // ignore stale css keys after navigation
+      }
+      this.scrollbarCssKey = null
+    }
+
+    if (this.showScrollbar) return
+
+    try {
+      this.scrollbarCssKey = await webContents.insertCSS(HIDE_SCROLLBAR_CSS)
+    } catch {
+      // ignore pages that reject css injection
+    }
+  }
+
   private sendEvent(window: BrowserWindow, payload: BrowserEventPayload): void {
     if (window.isDestroyed() || window.webContents.isDestroyed()) return
     window.webContents.send(BROWSER_EVENT_CHANNEL, payload)
@@ -239,16 +322,19 @@ export class BrowserViewManager {
     webContents.on('did-navigate', (_event, url) => {
       emitNavigate(url)
       this.applyTransparency()
+      void this.applyScrollbarVisibility()
     })
 
     webContents.on('did-navigate-in-page', (_event, url) => {
       emitNavigate(url)
       this.applyTransparency()
+      void this.applyScrollbarVisibility()
     })
 
     webContents.on('did-finish-load', () => {
-      webContents.setZoomFactor(1)
+      this.applyZoom()
       this.applyTransparency()
+      void this.applyScrollbarVisibility()
       this.sendEvent(window, { type: 'ready' })
     })
 

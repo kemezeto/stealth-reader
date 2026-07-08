@@ -10,13 +10,17 @@ interface HomeViewProps {
   onSettingsChange: (partial: Partial<AppSettings>) => void
   onStatusChange: (status: string) => void
   onImmersiveChange: (immersive: boolean) => void
+  onBrowsingChange?: (browsing: boolean) => void
+  onBrowsingUrlChange?: (url: string) => void
 }
 
 export default function HomeView({
   settings,
   onSettingsChange,
   onStatusChange,
-  onImmersiveChange
+  onImmersiveChange,
+  onBrowsingChange,
+  onBrowsingUrlChange
 }: HomeViewProps): JSX.Element {
   const [browsing, setBrowsing] = useState(false)
   const [browsingUrl, setBrowsingUrl] = useState(settings.lastUrl)
@@ -63,10 +67,19 @@ export default function HomeView({
 
   useEffect(() => {
     onImmersiveChange(browsing)
-  }, [browsing, onImmersiveChange])
+    onBrowsingChange?.(browsing)
+    if (!browsing) {
+      onBrowsingUrlChange?.('')
+    }
+  }, [browsing, onBrowsingChange, onBrowsingUrlChange, onImmersiveChange])
+
+  useEffect(() => {
+    if (!browsing) return
+    onBrowsingUrlChange?.(browserUrlInput)
+  }, [browserUrlInput, browsing, onBrowsingUrlChange])
 
   if (browsing) {
-    return <BrowserView settings={settings} browser={browser} onExit={exitBrowsing} />
+    return <BrowserView settings={settings} onSettingsChange={onSettingsChange} browser={browser} onExit={exitBrowsing} />
   }
 
   return (

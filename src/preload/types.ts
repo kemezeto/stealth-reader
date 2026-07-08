@@ -65,6 +65,20 @@ export interface LockPublicState {
   hasPassword: boolean
 }
 
+export interface BrowserBookmark {
+  id: string
+  title: string
+  url: string
+  createdAt: number
+}
+
+export interface BrowserHistoryEntry {
+  id: string
+  title: string
+  url: string
+  visitedAt: number
+}
+
 export interface AppSettings {
   windowOpacity: number
   contentOpacity: number
@@ -86,6 +100,13 @@ export interface AppSettings {
   browserTabPrev: string
   browserTabNext: string
   browserTabSwitchEnabled: boolean
+  browserToolbarAutoHide: boolean
+  browserShowScrollbar: boolean
+  browserZoomPercent: number
+  browserZoomScope: 'domain' | 'global'
+  browserZoomByDomain: Record<string, number>
+  browserBookmarks: BrowserBookmark[]
+  browserHistory: BrowserHistoryEntry[]
   windowWidth: number
   windowHeight: number
   windowSizePreset: WindowSizePreset
@@ -121,6 +142,7 @@ export type BrowserEventPayload =
   | { type: 'navigate'; url: string; canGoBack: boolean; canGoForward: boolean }
   | { type: 'fail-load'; errorDescription: string }
   | { type: 'ready' }
+  | { type: 'sync-bounds' }
 
 export interface StealthApi {
   getSettings: () => Promise<AppSettings>
@@ -134,11 +156,20 @@ export interface StealthApi {
   close: () => void
   onContentOpacityChanged: (callback: (opacity: number) => void) => () => void
   onAutoHideStateChanged: (callback: (payload: AutoHideStatePayload) => void) => () => void
+  onWindowResized: (callback: () => void) => () => void
+  browserToolbarSetState: (state: {
+    browsing: boolean
+    autoHide: boolean
+    hidden: boolean
+  }) => void
+  onBrowserToolbarReveal: (callback: () => void) => () => void
   browserMount: (options: {
     url: string
     bounds: BrowserBounds
     transparent: boolean
     opacity: number
+    showScrollbar: boolean
+    zoomFactor: number
   }) => Promise<void>
   browserUnmount: () => Promise<void>
   browserSetBounds: (bounds: BrowserBounds) => void
@@ -147,6 +178,9 @@ export interface StealthApi {
   browserForward: () => Promise<boolean>
   browserReload: () => Promise<void>
   browserSetTransparency: (transparent: boolean, opacity: number) => void
+  browserSetScrollbar: (show: boolean) => void
+  browserSetZoom: (factor: number) => void
+  onBrowserZoomChanged: (callback: (percent: number) => void) => () => void
   onBrowserEvent: (callback: (payload: BrowserEventPayload) => void) => () => void
   onBrowserTabSwitch: (callback: (direction: 'prev' | 'next') => void) => () => void
   canRegisterHotkey: (accelerator: string) => Promise<boolean>

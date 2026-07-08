@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppSettings, BrowserBounds } from '../../../preload/types'
+import { persistBrowserZoomChange, resolveBrowserZoomPercent } from '../components/browser/browser-zoom'
+import { addBrowserHistoryEntry } from '../components/browser/browser-history'
 import { normalizeUrl } from '../url'
 
 interface UseWebviewBrowserOptions {
@@ -29,11 +31,15 @@ export interface WebviewBrowserState {
 function readViewportBounds(element: HTMLDivElement): BrowserBounds {
   const rect = element.getBoundingClientRect()
   return {
-    x: rect.x,
-    y: rect.y,
+    x: rect.left,
+    y: rect.top,
     width: rect.width,
     height: rect.height
   }
+}
+
+function boundsAreValid(bounds: BrowserBounds): boolean {
+  return bounds.width > 0 && bounds.height > 0
 }
 
 export function useWebviewBrowser({
@@ -45,17 +51,41 @@ export function useWebviewBrowser({
 }: UseWebviewBrowserOptions): WebviewBrowserState {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const mountedRef = useRef(false)
+  const syncFrameRef = useRef<number | null>(null)
+  const settingsRef = useRef(settings)
+  const urlRef = useRef(settings.lastUrl)
   const [urlInput, setUrlInput] = useState(settings.lastUrl)
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  settingsRef.current = settings
+  urlRef.current = urlInput
+
+  const applyZoomForCurrentUrl = useCallback((): void => {
+    const percent = resolveBrowserZoomPercent(settingsRef.current, urlRef.current)
+    window.stealth.browserSetZoom(percent / 100)
+  }, [])
+
   const syncBounds = useCallback((): void => {
     const viewport = viewportRef.current
     if (!viewport || !mountedRef.current) return
-    window.stealth.browserSetBounds(readViewportBounds(viewport))
+
+    const bounds = readViewportBounds(viewport)
+    if (!boundsAreValid(bounds)) return
+
+    window.stealth.browserSetBounds(bounds)
   }, [])
+
+  const scheduleSyncBounds = useCallback((): void => {
+    if (syncFrameRef.current !== null) return
+
+    syncFrameRef.current = requestAnimationFrame(() => {
+      syncFrameRef.current = null
+      syncBounds()
+    })
+  }, [syncBounds])
 
   const applyTransparency = useCallback((): void => {
     window.stealth.browserSetTransparency(settings.transparentMode ?? true, settings.contentOpacity)
@@ -111,6 +141,11 @@ export function useWebviewBrowser({
   }, [active, initialUrl])
 
   useEffect(() => {
+    if (!active) return
+    scheduleSyncBounds()
+  }, [active, loadError, scheduleSyncBounds])
+
+  useEffect(() => {
     if (!active) {
       mountedRef.current = false
       void window.stealth.browserUnmount()
@@ -120,49 +155,95 @@ export function useWebviewBrowser({
     let cancelled = false
 
     const mountBrowser = async (): Promise<void> => {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 
-      const viewport = viewportRef.current
-      if (cancelled || !viewport) return
+        const viewport = viewportRef.current
+        if (cancelled || !viewport) return
 
-      const bounds = readViewportBounds(viewport)
-      if (bounds.width <= 0 || bounds.height <= 0) return
+        const bounds = readViewportBounds(viewport)
+        if (!boundsAreValid(bounds)) continue
 
-      await window.stealth.browserMount({
-        url: initialUrl,
-        bounds,
-        transparent: settings.transparentMode ?? true,
-        opacity: settings.contentOpacity
-      })
+        await window.stealth.browserMount({
+          url: initialUrl,
+          bounds,
+          transparent: settings.transparentMode ?? true,
+          opacity: settings.contentOpacity,
+          showScrollbar: settings.browserShowScrollbar ?? true,
+          zoomFactor: resolveBrowserZoomPercent(settings, initialUrl) / 100
+        })
 
-      if (cancelled) {
-        void window.stealth.browserUnmount()
+        if (cancelled) {
+          void window.stealth.browserUnmount()
+          return
+        }
+
+        mountedRef.current = true
+        scheduleSyncBounds()
         return
       }
-
-      mountedRef.current = true
-      syncBounds()
     }
 
     void mountBrowser()
 
     const viewport = viewportRef.current
+    const page = viewport?.closest('.page--browser')
     const resizeObserver =
-      viewport && typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(() => syncBounds())
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => scheduleSyncBounds())
         : null
 
     resizeObserver?.observe(viewport!)
-    window.addEventListener('resize', syncBounds)
+    if (page instanceof HTMLElement) {
+      resizeObserver?.observe(page)
+    }
+
+    window.addEventListener('resize', scheduleSyncBounds)
+
+    const unsubscribeWindowResize = window.stealth.onWindowResized(scheduleSyncBounds)
+    const unsubscribeAutoHide = window.stealth.onAutoHideStateChanged(({ hidden }) => {
+      if (!hidden) scheduleSyncBounds()
+    })
 
     return () => {
       cancelled = true
       mountedRef.current = false
+      if (syncFrameRef.current !== null) {
+        cancelAnimationFrame(syncFrameRef.current)
+        syncFrameRef.current = null
+      }
       resizeObserver?.disconnect()
-      window.removeEventListener('resize', syncBounds)
+      window.removeEventListener('resize', scheduleSyncBounds)
+      unsubscribeWindowResize()
+      unsubscribeAutoHide()
       void window.stealth.browserUnmount()
     }
-  }, [active, initialUrl, settings.contentOpacity, settings.transparentMode, syncBounds])
+  }, [active, initialUrl, scheduleSyncBounds, settings.contentOpacity, settings.transparentMode])
+
+  useEffect(() => {
+    if (!active) return
+    window.stealth.browserSetScrollbar(settings.browserShowScrollbar ?? true)
+  }, [active, settings.browserShowScrollbar])
+
+  useEffect(() => {
+    if (!active) return
+    applyZoomForCurrentUrl()
+  }, [
+    active,
+    applyZoomForCurrentUrl,
+    settings.browserZoomByDomain,
+    settings.browserZoomPercent,
+    settings.browserZoomScope,
+    urlInput
+  ])
+
+  useEffect(() => {
+    if (!active) return
+
+    return window.stealth.onBrowserZoomChanged((percent) => {
+      onSettingsChange(persistBrowserZoomChange(settingsRef.current, urlRef.current, percent))
+    })
+  }, [active, onSettingsChange])
 
   useEffect(() => {
     return window.stealth.onBrowserTabSwitch((direction) => {
@@ -192,7 +273,13 @@ export function useWebviewBrowser({
           setCanGoBack(event.canGoBack)
           setCanGoForward(event.canGoForward)
           setLoadError(null)
-          void onSettingsChange({ lastUrl: event.url })
+          void onSettingsChange({
+            lastUrl: event.url,
+            browserHistory: addBrowserHistoryEntry(
+              settingsRef.current.browserHistory ?? [],
+              event.url
+            )
+          })
           break
         case 'fail-load':
           setIsLoading(false)
@@ -203,11 +290,14 @@ export function useWebviewBrowser({
           applyTransparency()
           onStatusChange('浏览中')
           break
+        case 'sync-bounds':
+          scheduleSyncBounds()
+          break
         default:
           break
       }
     })
-  }, [active, applyTransparency, onSettingsChange, onStatusChange])
+  }, [active, applyTransparency, onSettingsChange, onStatusChange, scheduleSyncBounds])
 
   useEffect(() => {
     if (active) applyTransparency()
