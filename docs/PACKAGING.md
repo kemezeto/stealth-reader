@@ -28,7 +28,7 @@ release/win-unpacked/
 npm run dist:portable
 ```
 
-产物：`release/Stealth Reader-2.0.0-portable.exe`
+产物：`release/Stealth Reader-2.1.0-portable.exe`
 
 ## 开发调试
 
